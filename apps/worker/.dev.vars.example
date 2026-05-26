@@ -1,0 +1,4 @@
+# Copy to .dev.vars (gitignored) for `wrangler dev`. Production uses
+# `wrangler secret put DATABASE_URL` / `wrangler secret put ADMIN_TOKEN`.
+DATABASE_URL=
+ADMIN_TOKEN=dev-token

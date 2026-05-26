@@ -1,0 +1,21 @@
+name = "morpho-dashboard-worker"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Four staggered crons every 6h, each within CF Free's 50 subreq cap.
+# The scheduled() handler dispatches based on event.cron.
+[triggers]
+crons = [
+  "0 */6 * * *",   # chains, curators, markets, vaults
+  "10 */6 * * *",  # defillama-tvl, defillama-fees
+  "20 */6 * * *",  # defillama-lending-denom
+  "30 */6 * * *",  # aave-rates (DefiLlama yields → aave_rates_daily)
+]
+
+[vars]
+ENVIRONMENT = "production"
+
+# Secrets — set via wrangler:
+#   wrangler secret put DATABASE_URL   # Neon connection string
+#   wrangler secret put ADMIN_TOKEN    # required for POST /sync/* and /backfill/tick

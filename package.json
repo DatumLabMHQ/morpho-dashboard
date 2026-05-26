@@ -1,0 +1,16 @@
+{
+  "name": "morpho-dashboard",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.14.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev:web": "pnpm --filter @morpho-dashboard/web dev",
+    "dev:worker": "pnpm --filter @morpho-dashboard/worker dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "schema:apply": "pnpm --filter @morpho-dashboard/db schema:apply"
+  }
+}

@@ -1,0 +1,241 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * ─── Datum Labs Terminal Theme ───
+ *
+ * Mirrors the Lending Intelligence Terminal palette (`app/globals.css`) so
+ * components copy-paste between the two products without rewiring CSS
+ * variable names. Dark is the default; light is selected by writing
+ * `data-theme="light"` to <html> (see ThemeProvider).
+ *
+ * RGB-triple variants (--accent-rgb, --surface-rgb, --negative-rgb) exist
+ * for the colors that opacity-modifier utilities (e.g. `bg-accent/10`)
+ * compose with via Tailwind's <alpha-value> placeholder.
+ */
+
+/* ─── Light theme (explicit data-theme="light"). ─── */
+:root[data-theme="light"] {
+  /* Surfaces (SDK names) */
+  --background: #F5F6F8;
+  --foreground: #0F1115;
+  --card: #FFFFFF;
+  --card-hover: #F0F2F5;
+  --panel-header: #FAFBFC;
+  --border: rgba(15, 17, 21, 0.08);
+  --border-bright: rgba(15, 17, 21, 0.16);
+  --text-muted: #5B6373;
+
+  /* Brand accents (SDK — darkened where contrast needs it on light bg) */
+  --accent-orange: #FF6B35;
+  --accent-red: #D6322E;
+  --accent-blue: #3B5FE0;
+  --accent-green: #0F9D58;
+  --accent-purple: #9B4AE0;
+  --accent-cyan: #0090B2;
+  --accent-yellow: #D97706;
+
+  /* Chart palette */
+  --chart-1: #3B5FE0;
+  --chart-2: #0F9D58;
+  --chart-3: #D97706;
+  --chart-4: #9B4AE0;
+  --chart-5: #0090B2;
+  --chart-6: #FF6B35;
+  --chart-7: #D81B7A;
+  --chart-8: #4F46E5;
+
+  /* Back-compat aliases (legacy variable names used in this codebase) */
+  --card-bg: var(--card);
+  --card-border: var(--border);
+  --text-primary: var(--foreground);
+  --text-secondary: #2C3344;
+  --accent: var(--accent-orange);
+  --accent-secondary: var(--accent-purple);
+  --positive: var(--accent-green);
+  --negative: var(--accent-red);
+  --success: var(--accent-green);
+  --danger: var(--accent-red);
+  --tooltip-bg: rgba(255, 255, 255, 0.98);
+  --tooltip-shadow: rgba(15, 17, 21, 0.10);
+  --hover-overlay: rgba(15, 17, 21, 0.03);
+  --shadow-card: rgba(15, 17, 21, 0.10) 0px 8px 24px 0px;
+
+  /* Pre-existing dashboard tokens that the old codebase referenced — kept
+   * as aliases over the SDK names so existing components keep working. */
+  --surface: var(--card);
+  --surface-hover: var(--card-hover);
+
+  /* RGB triples for opacity-modifier utility classes */
+  --accent-rgb: 255 107 53;
+  --surface-rgb: 255 255 255;
+  --negative-rgb: 214 50 46;
+
+  color-scheme: light;
+}
+
+/* ─── Dark theme (default for this terminal). ───
+ * Note: no bare `:root` fallback. The HTML always has `data-theme` set
+ * (server-rendered as "dark"; pre-paint script overwrites to the persisted
+ * value before paint), and a bare `:root` block would tie on specificity
+ * with `:root[data-theme="light"]` and win on source-order, blocking the
+ * light theme entirely. */
+:root[data-theme="dark"] {
+  --background: #0B0D11;
+  --foreground: #E5E7EB;
+  --card: #14171D;
+  --card-hover: #1B1F27;
+  --panel-header: #1A1D24;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-bright: rgba(255, 255, 255, 0.16);
+  --text-muted: #8B92A1;
+
+  --accent-orange: #FF8155;
+  --accent-red: #F26B68;
+  --accent-blue: #6B85FF;
+  --accent-green: #34D399;
+  --accent-purple: #B97AFF;
+  --accent-cyan: #38BDF8;
+  --accent-yellow: #FBBF24;
+
+  --chart-1: #6B85FF;
+  --chart-2: #34D399;
+  --chart-3: #FBBF24;
+  --chart-4: #B97AFF;
+  --chart-5: #38BDF8;
+  --chart-6: #FF8155;
+  --chart-7: #F472B6;
+  --chart-8: #818CF8;
+
+  --card-bg: var(--card);
+  --card-border: var(--border);
+  --text-primary: var(--foreground);
+  --text-secondary: #C8CCD6;
+  --accent: var(--accent-orange);
+  --accent-secondary: var(--accent-purple);
+  --positive: var(--accent-green);
+  --negative: var(--accent-red);
+  --success: var(--accent-green);
+  --danger: var(--accent-red);
+  --tooltip-bg: rgba(20, 23, 29, 0.98);
+  --tooltip-shadow: rgba(0, 0, 0, 0.45);
+  --hover-overlay: rgba(255, 255, 255, 0.04);
+  --shadow-card: rgba(15, 17, 21, 0.18) 0px 12px 32px 0px;
+
+  --surface: var(--card);
+  --surface-hover: var(--card-hover);
+
+  --accent-rgb: 255 129 85;
+  --surface-rgb: 20 23 29;
+  --negative-rgb: 242 107 104;
+
+  color-scheme: dark;
+}
+
+/* ─── Shared tokens (theme-independent) ─── */
+:root {
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --font-sans: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Selection respects the brand accent */
+::selection {
+  background: rgb(var(--accent-rgb) / 0.30);
+  color: var(--text-primary);
+}
+
+/* Scrollbars — match the active surface */
+* {
+  scrollbar-color: var(--border-bright) transparent;
+}
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--border-bright); }
+
+body {
+  background: var(--background);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "ss02", "tnum"; /* mono ligatures + tabular nums */
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+/* Recharts theming — muted axes, subtle grid, light tick text. */
+.recharts-cartesian-grid line {
+  stroke: var(--border);
+}
+.recharts-cartesian-axis-line,
+.recharts-cartesian-axis-tick-line {
+  stroke: var(--border-bright);
+}
+.recharts-cartesian-axis-tick-value {
+  fill: var(--text-muted) !important;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+}
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: var(--tooltip-bg) !important;
+  border: 1px solid var(--border-bright) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: 0 8px 24px var(--tooltip-shadow);
+  font-family: var(--font-mono);
+  font-size: 11px !important;
+  color: var(--text-primary);
+}
+
+/* ─── Reusable ALL-CAPS small-cap header — terminal signature. ─── */
+.terminal-header {
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* ─── tui-card primitive (ported from LIT) ─── */
+.tui-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.tui-card:hover {
+  border-color: rgb(var(--accent-rgb) / 0.25);
+  box-shadow: 0 0 20px rgb(var(--accent-rgb) / 0.05);
+}
+
+/* ─── Standardized page wrapper used by new pages ─── */
+.page-wrapper {
+  max-width: 1400px;
+  margin-inline: auto;
+  padding: 20px 16px;
+}
+@media (min-width: 1024px) {
+  .page-wrapper { padding-inline: 24px; }
+}
+
+/* ─── Chart expand overlay (used by Phase 2 ChartActions) ─── */
+.chart-expanded {
+  position: fixed !important;
+  inset: 24px !important;
+  z-index: 1001 !important;
+  width: auto !important;
+  max-width: none !important;
+  box-shadow: 0 24px 64px rgba(15, 17, 21, 0.25);
+}
+.chart-expanded .chart-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto !important;
+}
+.chart-expanded-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 17, 21, 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 1000;
+  cursor: pointer;
+}

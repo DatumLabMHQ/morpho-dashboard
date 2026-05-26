@@ -1,0 +1,28 @@
+{
+  "name": "@morpho-dashboard/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts",
+    "./queries/*": "./src/queries/*.ts"
+  },
+  "scripts": {
+    "schema:apply": "tsx ../../scripts/apply-schema.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.13",
+    "dotenv": "^16.4.7",
+    "playwright": "^1.60.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "ws": "^8.18.0"
+  }
+}

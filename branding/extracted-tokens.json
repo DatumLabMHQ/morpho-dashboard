@@ -1,0 +1,255 @@
+{
+  "resolvedUrl": "https://lending-intelligence-terminal.vercel.app/",
+  "pageTitle": "Lending Intelligence Terminal · Datum Labs",
+  "body": {
+    "backgroundColor": "rgb(11, 13, 17)",
+    "color": "rgb(229, 231, 235)",
+    "fontFamily": "\"JetBrains Mono\", monospace"
+  },
+  "rootCssVariables": {
+    "--background": "#0b0d11",
+    "--foreground": "#e5e7eb",
+    "--card": "#14171d",
+    "--card-hover": "#1b1f27",
+    "--panel-header": "#1a1d24",
+    "--border": "hsla(0,0%,100%,.08)",
+    "--border-bright": "hsla(0,0%,100%,.16)",
+    "--text-muted": "#8b92a1",
+    "--accent-orange": "#ff8155",
+    "--accent-red": "#f26b68",
+    "--accent-blue": "#6b85ff",
+    "--accent-green": "#34d399",
+    "--accent-purple": "#b97aff",
+    "--accent-cyan": "#38bdf8",
+    "--accent-yellow": "#fbbf24",
+    "--chart-1": "#6b85ff",
+    "--chart-2": "#34d399",
+    "--chart-3": "#fbbf24",
+    "--chart-4": "#b97aff",
+    "--chart-5": "#38bdf8",
+    "--chart-6": "#ff8155",
+    "--chart-7": "#f472b6",
+    "--chart-8": "#818cf8",
+    "--card-bg": "#14171d",
+    "--card-border": "hsla(0,0%,100%,.08)",
+    "--text-primary": "#e5e7eb",
+    "--text-secondary": "#c8ccd6",
+    "--accent": "#ff8155",
+    "--accent-secondary": "#b97aff",
+    "--success": "#34d399",
+    "--danger": "#f26b68",
+    "--tooltip-bg": "rgba(20,23,29,.98)",
+    "--tooltip-shadow": "rgba(0,0,0,.45)",
+    "--hover-overlay": "hsla(0,0%,100%,.04)",
+    "--scanline-color": "hsla(0,0%,100%,.02)"
+  },
+  "fonts": [],
+  "headings": {
+    "h1": {
+      "selector": "h1",
+      "innerText": "SECTOR OVERVIEW",
+      "font": {
+        "family": "\"JetBrains Mono\", monospace",
+        "size": "13px",
+        "weight": "400",
+        "lineHeight": "19.5px",
+        "letterSpacing": "1.95px"
+      },
+      "color": "rgb(139, 146, 161)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "borderColor": "rgb(229, 231, 235)",
+      "borderWidth": "0px",
+      "borderRadius": "0px",
+      "boxShadow": "none",
+      "padding": "0px",
+      "margin": "0px 0px 4px"
+    },
+    "h3": {
+      "selector": "h3",
+      "innerText": "SUBSCRIBE",
+      "font": {
+        "family": "\"JetBrains Mono\", monospace",
+        "size": "10px",
+        "weight": "600",
+        "lineHeight": "15px",
+        "letterSpacing": "1.6px"
+      },
+      "color": "rgb(255, 129, 85)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "borderColor": "rgb(229, 231, 235)",
+      "borderWidth": "0px",
+      "borderRadius": "0px",
+      "boxShadow": "none",
+      "padding": "0px",
+      "margin": "0px 0px 12px"
+    }
+  },
+  "buttons": {
+    "primary": {
+      "selector": "button",
+      "innerText": "",
+      "font": {
+        "family": "\"JetBrains Mono\", monospace",
+        "size": "13px",
+        "weight": "400",
+        "lineHeight": "19.5px",
+        "letterSpacing": "normal"
+      },
+      "color": "rgb(139, 146, 161)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "borderColor": "rgba(255, 255, 255, 0.08)",
+      "borderWidth": "1px",
+      "borderRadius": "6px",
+      "boxShadow": "none",
+      "padding": "0px",
+      "margin": "0px"
+    }
+  },
+  "inputs": {
+    "selector": "input",
+    "innerText": "",
+    "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": "12px",
+      "weight": "400",
+      "lineHeight": "18px",
+      "letterSpacing": "normal"
+    },
+    "color": "rgb(229, 231, 235)",
+    "backgroundColor": "rgb(20, 23, 29)",
+    "borderColor": "rgba(255, 255, 255, 0.16)",
+    "borderWidth": "1px",
+    "borderRadius": "3px",
+    "boxShadow": "none",
+    "padding": "6px 10px",
+    "margin": "0px"
+  },
+  "cards": [
+    {
+      "selector": "[class*=\"card\" i]",
+      "innerText": "TOTAL SUPPLY\n$33.53Bdeposits across 6 protocols\n▲\n$831.52K\n24h\n▼\n$1.68B\nMoM\n▼\n$1",
+      "font": {
+        "family": "\"JetBrains Mono\", monospace",
+        "size": "13px",
+        "weight": "400",
+        "lineHeight": "19.5px",
+        "letterSpacing": "normal"
+      },
+      "color": "rgb(229, 231, 235)",
+      "backgroundColor": "rgb(20, 23, 29)",
+      "borderColor": "rgba(255, 255, 255, 0.08)",
+      "borderWidth": "1px",
+      "borderRadius": "8px",
+      "boxShadow": "none",
+      "padding": "16px",
+      "margin": "0px"
+    },
+    {
+      "selector": "[class*=\"card\" i]",
+      "innerText": "ACTIVE BORROWS\n$13.46Boutstanding debt principal\n▲\n$4.16M\n24h\n▼\n$1.59B\nMoM\n▼\n$5.",
+      "font": {
+        "family": "\"JetBrains Mono\", monospace",
+        "size": "13px",
+        "weight": "400",
+        "lineHeight": "19.5px",
+        "letterSpacing": "normal"
+      },
+      "color": "rgb(229, 231, 235)",
+      "backgroundColor": "rgb(20, 23, 29)",
+      "borderColor": "rgba(255, 255, 255, 0.08)",
+      "borderWidth": "1px",
+      "borderRadius": "8px",
+      "boxShadow": "none",
+      "padding": "16px",
+      "margin": "0px"
+    },
+    {
+      "selector": "[class*=\"card\" i]",
+      "innerText": "AVAILABLE LIQUIDITY\n$20.07Bunborrowed deposits\n▼\n$3.33M\n24h\n▼\n$91.24M\nMoM\n▼\n$9.8",
+      "font": {
+        "family": "\"JetBrains Mono\", monospace",
+        "size": "13px",
+        "weight": "400",
+        "lineHeight": "19.5px",
+        "letterSpacing": "normal"
+      },
+      "color": "rgb(229, 231, 235)",
+      "backgroundColor": "rgb(20, 23, 29)",
+      "borderColor": "rgba(255, 255, 255, 0.08)",
+      "borderWidth": "1px",
+      "borderRadius": "8px",
+      "boxShadow": "none",
+      "padding": "16px",
+      "margin": "0px"
+    }
+  ],
+  "tableRow": {
+    "selector": "table tbody tr",
+    "innerText": "1\tWETH\t\nAave V3\t$4.01B\t$606.72M\t$3.29B\t82.1%\t1.50%\t2.16%\t",
+    "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": "13px",
+      "weight": "400",
+      "lineHeight": "19.5px",
+      "letterSpacing": "normal"
+    },
+    "color": "rgb(229, 231, 235)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "borderColor": "rgb(229, 231, 235)",
+    "borderWidth": "0px",
+    "borderRadius": "0px",
+    "boxShadow": "none",
+    "padding": "0px",
+    "margin": "0px"
+  },
+  "chartArea": {
+    "selector": ".recharts-surface, [class*=\"chart\" i]",
+    "innerText": "",
+    "font": {
+      "family": "\"JetBrains Mono\", monospace",
+      "size": "13px",
+      "weight": "400",
+      "lineHeight": "19.5px",
+      "letterSpacing": "normal"
+    },
+    "color": "rgb(229, 231, 235)",
+    "backgroundColor": "rgba(0, 0, 0, 0)",
+    "borderColor": "rgb(229, 231, 235)",
+    "borderWidth": "0px",
+    "borderRadius": "0px",
+    "boxShadow": "none",
+    "padding": "0px",
+    "margin": "0px"
+  },
+  "rechartsColors": [
+    "#10B981",
+    "#EC4899",
+    "#B44AFF",
+    "#FF6B35",
+    "#5B7FFF",
+    "#06B6D4",
+    "#D946EF",
+    "var(--success)",
+    "var(--danger)",
+    "var(--card-bg)",
+    "#F59E0B",
+    "#0090B2",
+    "#6B7280"
+  ],
+  "borderRadiiSeen": [
+    "6px",
+    "4px",
+    "8px",
+    "2px",
+    "3px"
+  ],
+  "shadowsSeen": [
+    "rgba(15, 17, 21, 0.18) 0px 12px 32px 0px"
+  ],
+  "logo": {
+    "src": "https://lending-intelligence-terminal.vercel.app/_next/image?url=%2Fbranding%2Fdatumlabs-icon.png&w=48&q=75",
+    "outerHTML": "<img alt=\"Datum Labs\" fetchpriority=\"high\" width=\"22\" height=\"22\" decoding=\"async\" data-nimg=\"1\" class=\"rounded-sm\" style=\"color:transparent\" srcset=\"/_next/image?url=%2Fbranding%2Fdatumlabs-icon.png&amp;w=32&amp;q=75 1x, /_next/image?url=%2Fbranding%2Fdatumlabs-icon.png&amp;w=48&amp;q=75 2x\" src=\"/_next/image?url=%2Fbranding%2Fdatumlabs-icon.png&amp;w=48&amp;q=75\">",
+    "wordmarkText": "|\nLENDING INTELLIGENCE TERMINAL"
+  },
+  "bodyHTMLSnippet": "<body><div class=\"min-h-screen font-mono flex flex-col\" style=\"background:var(--background);color:var(--foreground)\"><nav style=\"border-bottom:1px solid var(--border);background:var(--panel-header)\"><div class=\"max-w-[1400px] mx-auto px-4 lg:px-6 flex items-center justify-between h-10\"><div class=\"flex items-center gap-3\"><a class=\"flex items-center gap-3\" href=\"/\"><img alt=\"Datum Labs\" fetchpriority=\"high\" width=\"22\" height=\"22\" decoding=\"async\" data-nimg=\"1\" class=\"rounded-sm\" style=\"color:transparent\" srcset=\"/_next/image?url=%2Fbranding%2Fdatumlabs-icon.png&amp;w=32&amp;q=75 1x, /_next/image?url=%2Fbranding%2Fdatumlabs-icon.png&amp;w=48&amp;q=75 2x\" src=\"/_next/image?url=%2Fbranding%2Fdatumlabs-icon.png&amp;w=48&amp;q=75\"><span class=\"text-[10px]\" style=\"color:var(--text-muted)\">|</span><span class=\"text-[10px] uppercase tracking-[0.15em]\" style=\"color:var(--text-muted)\">Lending Intelligence Terminal</span></a></div><div class=\"flex items-center gap-4\"><div class=\"hidden md:flex items-center gap-1\"><a class=\"px-2.5 py-1 text-[10px] uppercase tracking-[0.1em] rounded transition-colors\" style=\"color:var(--accent-orange);background:rgba(255, 107, 53, 0.08);border-bottom:1px solid var(--accent-orange)\" href=\"/\">Overview</a><a class=\"px-2.5 py-1 text-[10px] uppercase tracking-[0.1em] rounded transition-colors\" style=\"color:var(--text-muted);background:transparent;border-bottom:1px solid transparent\" href=\"/protocols\">Protocols</a><a class=\"px-2.5 py-1 text-[10px] uppercase tracking-[0.1em] rounded transition-colors\" style=\"color:var(--text-muted);background:transparent;border-bottom:1px solid transparent\" href=\"/rates\">Rates</a><a class=\"px-2.5 py-1 text-[10px] uppercase tracking-[0.1em] rounded transition-colors\" style=\"color:var(--text-muted);background:transparent;border-bottom:1px solid transparent\" href=\"/revenue\">Revenue</a><a class=\"px-2.5 py-1 text-[10px] uppercase tracking-[0.1em] rounded transition-colors\" style=\"color:var(--text-muted);background:transparent;border-bottom:1px solid transparent\" href=\"/collateral\">Collateral</a><a class=\"px-2.5 py-1 text-[10px] uppercase tracking-[0.1em] rounded transition-colors\" style=\"color:var(--text-muted);background:transparent;border-bottom:1px solid transparent\" href=\"/risk\">Risk</a><a class=\"px-2.5 py-1 text-[10px] uppercase tracking-[0.1em] rounded transition-colors\" style=\"color:var(--text-muted);background:transparent;border-bottom:1px solid transparent\" href=\"/compare\">Compare</a><div class=\"reports-nav-wrapper\" style=\"position:relative\"><a class=\"px-2.5 py-1 text-[10px] uppercase tracking-[0.1em] rounded transition-colors\" style=\"color:var(--text-muted);background:transparent;border-bottom:1px solid transparent;display:inline-flex;align-items:center;gap:6px\" href=\"/reports\">Reports</a><div class=\"reports-nav-dropdown\" role=\"menu\" aria-label=\"Latest issue\"><div style=\"width:320px;background:var(--card);border:1px solid var(--border-bright);border-radius:6px;box-shadow:0 12px 32px rgba(15, 17, 21, 0.18);overflow:hidden;font-family:JetBrains Mono, monospace\"><div style=\"height:120px;background:linear-gradient(135deg, #F7F4ED 0%, #1F3A5F 100%);position:relative;overflow:hidden;background-image:url(&quot;/reports/2026-04-april-cover.png&quot;), linear-gradient(135deg, #F7F4ED 0%, #1F3A5F 100%);background-size:cover;background-position:center\"><span style=\"position:absolute;top:8px;left:10px;font-family:JetBrains Mono, monospace;font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:#C5511A;font-weight:600;background:rgba(247, 244, 237, 0.92);padding:2px 6px;border-radius:2px\">Issue <!-- -->№001<!-- --> · <!-- -->May 2026</span></div><div style=\"padding:12px 14px 14px;display:grid;gap:6px\"><p style=\"font-family:&quot;Source Serif 4&quot;, Georgia, serif;font-weight:700;font-size:16px;line-height:1.2;color:var(--foreground);margin:0;text-transform:none;letter-spacing:0\">The rsETH Reckoning</p><p style=\"font-family:&quot;Source Serif 4&quot;, Georgia, serif;font-style:italic;font-size:13px;line-height:1.45;color:var(--text-muted);margin:0;text-transform:none;letter-spacing:0\">How a single bridge exploit cascaded through DeFi lending in 96 hours, and the bad-debt question that remains unresolved.</p><a style=\"color:var(--accent-orange);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;text-decoration:none;margin-top:6px\" href=\"/reports/2026-04-april\">Read →</a></div></div></div><style>\n          .reports-nav-wrapper .reports-nav-dropdown {\n            position: absolute;\n            top: 100%;\n            right: 0;\n            padding-top: 8px;\n            opacity: 0;\n            pointer-events: none;\n            transform: translateY(-4px);\n            transition: opacity 100ms ease, transform 100ms ease;\n            z-index: 40;\n          }\n          .reports-nav-wrapper:hover .reports-nav-dropdown,\n          .reports-nav-wrapper:focus-within .reports-nav-dropdown {\n            opacity: 1;\n            pointer-events: auto;\n            transform: translateY(0);\n          }\n        </style></div></div><span class=\"inline-flex items-center gap-1.5 text-[10px]\" style=\"color:var(--text-muted)\"><span class=\"inline-block w-1.5 h-1.5 rounded-full animate-pulse\" style=\"background:var(--accent-orange)\"></span>CONNECTED</span><button type=\"button\" aria-label=\"Switch to light mode\" title=\"Switch to light mode\" class=\"inline-flex items-center justify-center rounded-md border transition-colors\" style=\"width:30px;height:30px;border-color:var(--border);background:transparent;color:var(--text-muted);cursor:pointer\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-sun\"><circle cx=\"12\" cy=\"12\" r=\"4\"></circle><path d=\"M12 2v2\"></path><path d=\"M12 20v2\"></path><path d=\"m4.93 4.93 1.41 1.41\"></path><path d=\"m17.66 17.66 1.41 1.41\"></path><path d=\"M2 12h2\"></path><path d=\"M20 12h2\"></path><path d=\"m6.34 17.66-1.41 1.41\"></path><path d=\"m19.07 4.93-1.41 1.41\"></path></svg></button></div></div></nav><div class=\"md:hidden flex items-center gap-1 px-4 py-2 overflow-x-auto\" style=\"border-bottom:1px solid var(--border);background:var(--panel-header)\"><a class=\"px-2.5 py-1 text-[10px] uppercase tracking-[0.1em] rounded whitespace-nowrap transition-colors\" style=\"color:var(--accent-orange);background:rgba(255, 107, 53, 0.08);display:inline-flex;align-items:center;gap:6px\" href=\"/\">Overview</a><a class=\"px-2.5 py-1 text-[10px] uppercase tracking-[0.1em] rounded whitespace-nowrap transition-colors\" style=\"color:var(--text-muted);background:transparent;display:inline-flex;align-items:center;gap:6px\" href=\"/protocols\">Protocols</a><a class=\"px-2.5 py-1 text-[10px] uppercase tracking-[0.1em] rounded whitespace-nowrap transition-colors\" style=\"color:var(--text-muted);background:transparent;display:inline-flex;align-items:center;gap:6px\" href=\"/rates\">Rates</a><a class=\"px-2.5 py-1 text-[10px] uppercase tracking-[0.1em] rounded whitespace-nowrap transition-colors\" style=\"color:var(--text-muted);background:transparent;display:inline-flex;align-items:center;gap:6px\" href=\"/revenue\">Revenue</a><a class=\"px-2.5 py-1 text-[10px] uppercase tracking-[0.1em] rounded whitespace-nowrap transition-colors\" style=\"color:var(--text-muted);background:transparent;display:inline-flex;align-items:center;gap:6px\" href=\"/collateral\">Collateral</a><a class=\"px-2.5 py-1 text-[10px] uppercase tracking-[0.1em] rounded whitespace-nowrap transition-colors\" style=\"color:var(--text-muted);background:transparent;display:inline-flex;align-items:center;gap:6px\" href=\"/risk\">Risk</a><a class=\"px-2.5 py-1 text-[10px] uppercase tracking-[0.1em] rounded whitespace-nowrap transition-colors\" style=\"color:var(--text-muted);background:transparent;display:inline-flex;align-items:center;gap:6px\" href=\"/compare\">Compare</a><a class=\"px-2.5 py-1 text-[10px] uppercase tracking-[0.1em] round"
+}
