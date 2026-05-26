@@ -4,6 +4,7 @@ import { ChainMixHeatmap } from '@/components/assets/chain-mix-heatmap';
 import { ClassShareChart } from '@/components/assets/class-share-chart';
 import { StablecoinBars } from '@/components/assets/stablecoin-bars';
 import { TopCollateralTable } from '@/components/assets/top-collateral-table';
+import { PageProvenance } from '@/components/provenance';
 import { EmptyState } from '@/components/ui/empty-state';
 import { KpiCard } from '@/components/ui/kpi-card';
 import { hasDatabaseUrl } from '@/lib/db';
@@ -199,6 +200,7 @@ export default async function AssetsPage() {
         }
         csvFilename="stablecoins.csv"
         csvContent={csvStables}
+        methodologyKey="assets-stablecoin-breakdown"
       >
         <StablecoinBars bars={stables.bars} />
       </ChartFrame>
@@ -217,6 +219,7 @@ export default async function AssetsPage() {
         subtitle={classChartSubtitle}
         csvFilename="asset-class-share.csv"
         csvContent={csvClassShare}
+        methodologyKey="assets-class-share-time"
       >
         <ClassShareChart data={classShare} />
       </ChartFrame>
@@ -231,6 +234,7 @@ export default async function AssetsPage() {
         }
         csvFilename="chain-asset-mix.csv"
         csvContent={csvChainMix}
+        methodologyKey="assets-chain-mix"
       >
         <ChainMixHeatmap data={chainMix} />
       </ChartFrame>
@@ -267,10 +271,16 @@ export default async function AssetsPage() {
         </section>
       )}
 
-      <p className="text-tiny uppercase tracking-header-medium text-text-muted">
-        Composition derived from morpho_.markets × morpho_.market_state_daily latest snapshot per market ·
-        vault_allocations_daily not yet backfilled
-      </p>
+      <PageProvenance
+        pageTitle="Asset composition"
+        pageUrl="/assets"
+        fetchedAt={new Date().toISOString()}
+        source="Morpho Blue GraphQL · market_state_daily latest snapshot per market"
+        methodology={{
+          text: 'Composition derived from morpho_.markets × morpho_.market_state_daily latest snapshot per market. Asset class is inferred from a shared inline CASE classifier mirrored across /assets, /markets, /vaults and /rates so the same symbol always categorizes the same way. PT-* (Pendle principal tokens) route to their underlying class.\nPhantom collateral positions — markets with NULL / 0 collateral_assets_usd or saturated-utilization IRM blow-ups (BONDUSD, K/USDC, HERMES family) — are filtered from headline KPIs but stay visible in the uncategorized panel and risk-surface table for review.',
+          source: 'morpho_.markets × morpho_.market_state_daily · vault_allocations_daily not yet backfilled',
+        }}
+      />
     </div>
   );
 }

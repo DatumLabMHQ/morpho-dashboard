@@ -1,4 +1,5 @@
 import { ChartFrame } from '@/components/chains/chart-frame';
+import { PageProvenance } from '@/components/provenance';
 import { FilterBar, type ActiveFilter } from '@/components/directory/filter-bar';
 import { FilterControls, type FilterControlSpec } from '@/components/directory/filter-controls';
 import { LltvHistogram } from '@/components/directory/lltv-histogram';
@@ -217,6 +218,7 @@ export default async function MarketsPage({ searchParams }: Props) {
         csvContent={['bucket,min_pct,max_pct,market_count,supply_usd',
           ...lltvHist.map((b) => [b.bucketLabel, b.bucketLow, b.bucketHigh, b.marketCount, b.supplyUsd].join(','))
         ].join('\n')}
+        methodologyKey="markets-lltv-distribution"
       >
         <LltvHistogram data={lltvHist} />
       </ChartFrame>
@@ -298,11 +300,16 @@ export default async function MarketsPage({ searchParams }: Props) {
         </div>
       </ChartFrame>
 
-      <p className="text-tiny uppercase tracking-header-medium text-text-muted">
-        Supply / borrow APY clamped at 100% to drop saturated-utilization IRM blow-ups (BONDUSD/USR,
-        K/USDC Arbitrum, HERMES/USDC family) — those rows still appear in the table but their APY columns
-        show &quot;—&quot; rather than figures like 2980%.
-      </p>
+      <PageProvenance
+        pageTitle="Market directory"
+        pageUrl="/markets"
+        fetchedAt={kpis.asOfDate ?? new Date().toISOString()}
+        source="Morpho Blue GraphQL · market_state_daily latest snapshot per market"
+        methodology={{
+          text: "Each row is one Morpho Blue market (loan asset ↔ collateral asset on a single chain). Supply USD, borrow USD, utilization, supply APY and borrow APY are read from the latest market_state_daily snapshot for that market. LLTV is the static market parameter from morpho_.markets. Age is days since created_at.\nSupply / borrow APY columns are clamped at 100% to drop saturated-utilization IRM blow-ups (BONDUSD/USR, K/USDC on Arbitrum, the HERMES/USDC family on Base) — those rows still appear in the table but their APY columns show \"—\" rather than figures like 2980%. The same clamped rows are also excluded from the weighted-utilization KPI, total supply / total borrow KPIs, and the LLTV histogram so the headline numbers reflect productive capital, not stuck-at-100% phantom positions.",
+          source: 'morpho_.markets × morpho_.market_state_daily latest day · saturation clamp = supply_apy < 100%',
+        }}
+      />
     </div>
   );
 }

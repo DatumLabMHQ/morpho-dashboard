@@ -1,11 +1,16 @@
 /**
  * Methodology config — single source of truth for chart + KPI definitions.
  *
- * Each chart's <MethodologyTooltip> can either receive `text` / `source`
- * inline OR pass a stable `methodologyKey` that's looked up here. Phase 3
- * wires the entries up from `content/methodology.json`; Phase 2 ships an
- * empty registry so the tooltip degrades to inline-props-only.
+ * Source of truth lives in `content/methodology.json`. Each chart's
+ * `<MethodologyTooltip>` either passes `methodologyKey` (looked up here) or
+ * inline `text` / `source`. Adding a new chart? Drop an entry into the JSON
+ * and pass the key — no code change needed.
+ *
+ * Loaded via a static JSON import so it ships to the client as a JS object
+ * (no fs / API roundtrip).
  */
+
+import raw from '@/content/methodology.json';
 
 export interface MethodologyEntry {
   /** Plain-language definition + how it's computed. 1-3 sentences. */
@@ -16,9 +21,12 @@ export interface MethodologyEntry {
   href?: string;
 }
 
-// Phase 3 will populate this from content/methodology.json. For now, the
-// registry is empty — MethodologyTooltip falls back to its inline props.
-export const METHODOLOGY: Record<string, MethodologyEntry> = {};
+// The JSON has a leading `_comment` field for human readers; strip those.
+const ENTRIES: Record<string, MethodologyEntry> = Object.fromEntries(
+  Object.entries(raw as Record<string, unknown>).filter(([k]) => !k.startsWith('_')),
+) as Record<string, MethodologyEntry>;
+
+export const METHODOLOGY: Record<string, MethodologyEntry> = ENTRIES;
 
 export function getMethodology(key: string | undefined): MethodologyEntry | null {
   if (!key) return null;

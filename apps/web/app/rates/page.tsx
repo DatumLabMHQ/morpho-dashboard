@@ -1,4 +1,5 @@
 import { ChartFrame } from '@/components/chains/chart-frame';
+import { PageProvenance } from '@/components/provenance';
 import { BadDebtWatch } from '@/components/rates/bad-debt-watch';
 import { MorphoVsAaveSpreadChart } from '@/components/rates/spread-chart';
 import { RateHistogram } from '@/components/rates/rate-histogram';
@@ -155,6 +156,7 @@ export default async function RatesPage() {
           subtitle={apyHistTop ? `Most supply USD sits in the ${apyHistTop.bucketLabel} bucket (${apyHistTop.marketCount} markets, ${fmtUsd(apyHistTop.supplyUsd, { compact: true })}).` : undefined}
           csvFilename="rates-supply-apy-hist.csv"
           csvContent={csvApyHist}
+          methodologyKey="rates-supply-apy-hist"
         >
           <RateHistogram data={apyHist} mode="supply" />
         </ChartFrame>
@@ -163,6 +165,7 @@ export default async function RatesPage() {
           subtitle={utilHistTop ? `Most supply USD sits in the ${utilHistTop.bucketLabel} utilization band (${utilHistTop.marketCount} markets, ${fmtUsd(utilHistTop.supplyUsd, { compact: true })}).` : undefined}
           csvFilename="rates-utilization-hist.csv"
           csvContent={csvUtilHist}
+          methodologyKey="rates-util-hist"
         >
           <RateHistogram data={utilHist} mode="supply" />
         </ChartFrame>
@@ -174,6 +177,7 @@ export default async function RatesPage() {
         subtitle={spreadSub}
         csvFilename="rates-morpho-vs-aave.csv"
         csvContent={csvSpread}
+        methodologyKey="rates-morpho-vs-aave"
       >
         <MorphoVsAaveSpreadChart series={spreadSeries} />
       </ChartFrame>
@@ -184,6 +188,7 @@ export default async function RatesPage() {
         subtitle="One bubble per Morpho market with >$1M supply. Bubble area = supply USD; color = collateral asset class."
         csvFilename="rates-util-vs-apy.csv"
         csvContent={csvScatter}
+        methodologyKey="rates-util-apy-scatter"
       >
         <UtilRateScatter data={scatter} />
       </ChartFrame>
@@ -194,6 +199,7 @@ export default async function RatesPage() {
         subtitle="risk_score = supply × utilization × LLTV. The markets where a liquidation cascade has the largest dollar impact."
         csvFilename="rates-risk-surface.csv"
         csvContent={csvRisk}
+        methodologyKey="rates-risk-surface"
       >
         <RiskSurfaceTable data={risk} />
       </ChartFrame>
@@ -204,15 +210,21 @@ export default async function RatesPage() {
         subtitle="Market-days where unrealized bad debt rose >5% over the prior day and exceeds $1k absolute."
         csvFilename="rates-bad-debt.csv"
         csvContent={csvBadDebt}
+        methodologyKey="rates-bad-debt"
       >
         <BadDebtWatch data={badDebt} />
       </ChartFrame>
 
-      <p className="text-tiny uppercase tracking-header-medium text-text-muted">
-        Aave V3 rates sourced from DefiLlama yields (yields.llama.fi). Morpho rates are supply-weighted across
-        all markets whose loan_asset matches the comparison universe; LLTV uses Morpho's market parameter, not
-        a chain-wide LTV cap.
-      </p>
+      <PageProvenance
+        pageTitle="Rates"
+        pageUrl="/rates"
+        fetchedAt={kpis.asOfDate ?? new Date().toISOString()}
+        source="Morpho Blue GraphQL + DefiLlama Yields (Aave V3 reserves)"
+        methodology={{
+          text: "Aave V3 rates sourced from DefiLlama yields (yields.llama.fi). Morpho rates are supply-weighted across all markets whose loan_asset matches the comparison universe; LLTV uses Morpho's market parameter, not a chain-wide LTV cap.\nSaturated-util IRM blow-ups — Morpho markets stuck at 100% utilization with degenerate oracles (BONDUSD/USR, K/USDC on Arbitrum, the HERMES/USDC family on Base, sdeUSD/USDC) — produce 418%-2980% supply APYs that are data artifacts, not rates anyone earns. Any market with supply_apy >= 100% is excluded from the histograms, scatter, KPI strip, and Morpho-vs-Aave spread series. Those markets stay visible in the risk-surface table since they are the largest blast-radius positions.",
+          source: 'aave_rates_daily refreshed every 6h by the worker · market_state_daily latest snapshot per market',
+        }}
+      />
     </div>
   );
 }

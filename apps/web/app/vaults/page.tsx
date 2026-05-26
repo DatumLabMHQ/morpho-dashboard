@@ -1,4 +1,5 @@
 import { ChartFrame } from '@/components/chains/chart-frame';
+import { PageProvenance } from '@/components/provenance';
 import { FilterBar, type ActiveFilter } from '@/components/directory/filter-bar';
 import { FilterControls, type FilterControlSpec } from '@/components/directory/filter-controls';
 import { Pagination } from '@/components/directory/pagination';
@@ -193,6 +194,7 @@ export default async function VaultsPage({ searchParams }: Props) {
           csvContent={['vault,chain,tvl_usd,net_apy',
             ...top.map((t) => [t.name.replace(/,/g, ' '), t.chainSlug ?? '', t.tvlUsd, t.netApy ?? ''].join(','))
           ].join('\n')}
+          methodologyKey="vaults-top-ten"
         >
           <TopVaultsBar data={top} />
         </ChartFrame>
@@ -203,6 +205,7 @@ export default async function VaultsPage({ searchParams }: Props) {
           csvContent={['bucket,min_usd,max_usd,vault_count,total_usd',
             ...tvlHist.map((b) => [b.bucketLabel, b.bucketLow, b.bucketHigh ?? '', b.vaultCount, b.totalUsd].join(','))
           ].join('\n')}
+          methodologyKey="vaults-tvl-distribution"
         >
           <TvlHistogram data={tvlHist} />
         </ChartFrame>
@@ -293,10 +296,16 @@ export default async function VaultsPage({ searchParams }: Props) {
         </div>
       </ChartFrame>
 
-      <p className="text-tiny uppercase tracking-header-medium text-text-muted">
-        Utilization column shows &quot;—&quot; until vault_allocations_daily backfills (currently empty —
-        coming in v2 of the allocation pipeline). Net APY is post-fee; fee column is the vault&apos;s performance fee.
-      </p>
+      <PageProvenance
+        pageTitle="Vault directory"
+        pageUrl="/vaults"
+        fetchedAt={kpis.asOfDate ?? new Date().toISOString()}
+        source="Morpho Blue GraphQL · vault_state_daily latest snapshot per vault"
+        methodology={{
+          text: 'Vault TVL, net APY and fees come from the latest vault_state_daily row per vault. 30-day Δ TVL compares the latest snapshot to the same vault\'s row from ~30 days prior. Net APY is post-fee. "Launched (30d)" counts vaults with created_at within the last 30 days.\nUtilization column shows "—" until vault_allocations_daily backfills (currently empty) — vault-level utilization requires the per-market allocations dataset.\nA vault\'s reported net APY ≥ 100% is treated as a data artifact (the underlying market\'s IRM ran away at saturated utilization) and excluded from the weighted-APY KPI; the vault still appears in the table with "—" in its APY column.',
+          source: 'morpho_.vaults × morpho_.vault_state_daily · curator attribution via vaults.curator_id',
+        }}
+      />
     </div>
   );
 }

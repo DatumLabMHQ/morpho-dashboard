@@ -1,3 +1,4 @@
+import { PageProvenance } from '@/components/provenance';
 import { EmptyState } from '@/components/ui/empty-state';
 import { KpiCard } from '@/components/ui/kpi-card';
 import { hasDatabaseUrl } from '@/lib/db';
@@ -60,6 +61,13 @@ export default async function OverviewPage() {
         Headline chart →{' '}
         <a href="/chains" className="text-accent hover:text-accent-secondary">/chains</a>
       </p>
+
+      <PageProvenance
+        pageTitle="Sector Overview"
+        pageUrl="/"
+        fetchedAt={kpis.asOfDate ?? new Date().toISOString()}
+        source="Morpho Blue GraphQL + DefiLlama TVL"
+      />
     </div>
   );
 }

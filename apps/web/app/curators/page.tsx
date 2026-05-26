@@ -2,6 +2,7 @@ import { ConcentrationPanel } from '@/components/curators/concentration-panel';
 import { CuratorShareBar } from '@/components/curators/curator-share-bars';
 import { CuratorTable } from '@/components/curators/curator-table';
 import { ReachMatrix } from '@/components/curators/reach-matrix';
+import { PageProvenance } from '@/components/provenance';
 import { EmptyState } from '@/components/ui/empty-state';
 import { KpiCard } from '@/components/ui/kpi-card';
 import { hasDatabaseUrl } from '@/lib/db';
@@ -159,11 +160,16 @@ export default async function CuratorsDirectoryPage() {
         </table>
       </section>
 
-      {/* Footer caveat — the quotable disclosure */}
-      <p className="text-tiny uppercase tracking-header-medium text-text-muted">
-        Revenue estimates: tvl × pre-fee APY × performance fee, annualized. Fees realized in vault shares —
-        actual USD-marked revenue varies with share price. As of {header.asOfDate}.
-      </p>
+      <PageProvenance
+        pageTitle="Curator directory"
+        pageUrl="/curators"
+        fetchedAt={header.asOfDate ?? new Date().toISOString()}
+        source="Morpho GraphQL · vault_state_daily × vaults.fee_recipient_address"
+        methodology={{
+          text: "Two attribution paths, picked by what's being measured.\nTVL / share / concentration uses vaults.curator_id (Morpho's declared curator, including V2 multi-curator). \"Unattributed TVL\" = vaults where curator_id IS NULL.\nRevenue uses vault.fee_recipient_address joined to curator_addresses. \"UNATTRIBUTED\" revenue = no curator address matched the fee recipient. Revenue formula = TVL × pre-fee APY × fee_bps/10000, annualized. Fees realize in vault shares, so the USD-marked revenue varies with share price.\nThe asset-class mix on each curator's detail page uses vault.asset_symbol as a proxy — true allocation-level data lives in vault_allocations_daily, which is empty until the backfill drains.",
+          source: 'morpho_.vaults × morpho_.curators × vault_state_daily.net_apy (post-fee)',
+        }}
+      />
     </div>
   );
 }
