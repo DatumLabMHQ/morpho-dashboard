@@ -1,100 +1,65 @@
 'use client';
 
-import { toPng } from 'html-to-image';
-import { useRef, useState } from 'react';
+/**
+ * ChartFrame — kept as a thin backwards-compat shim around the new ChartCard.
+ *
+ * Existing pages built before the Phase 2 chart-shell port use this name with
+ * an older prop shape (title, subtitle, csvFilename, csvContent, pngFilename,
+ * rightControls). Rather than rewriting every chart on every page, this shim
+ * maps those props onto ChartCard so all the new behavior (methodology
+ * tooltip support, PNG/copy/expand actions, future time toggle, future
+ * annotation overlay) lights up without per-page churn.
+ *
+ * New code should prefer `<ChartCard>` directly from `@/components/chart-card`.
+ */
+
+import { ChartCard } from '@/components/chart-card';
 
 interface Props {
   title: string;
   subtitle?: string;
   csvFilename: string;
-  // CSV content (header + rows) is pre-computed on the server. Was previously
-  // a builder function but functions can't cross the RSC boundary into a
-  // client component, so we just pass the string.
+  /** Pre-computed CSV string (server-side). */
   csvContent: string;
+  /** Ignored — PNG filename is now derived from the title. Accepted to keep
+   *  the prop type compatible with older call sites. */
   pngFilename?: string;
   children: React.ReactNode;
-  /** Optional right-side controls (e.g. tab switch). Rendered between title and buttons. */
+  /** Optional right-side controls (e.g. an inline tab switcher). */
   rightControls?: React.ReactNode;
+  /** Optional methodology copy. Either pass `methodologyKey` (looked up in
+   *  content/methodology.json — Phase 3) or inline `text` / `source`. */
+  methodologyKey?: string;
+  methodologyText?: string;
+  methodologySource?: string;
 }
 
-// Standard wrapper around every chart on the per-chain detail page:
-//   - ALL-CAPS small-cap title in the terminal style
-//   - Optional subtitle (auto-generated stat line)
-//   - Copy-as-CSV + Export-PNG buttons in the top-right
-//   - Captures the chart node only (not the buttons) when exporting PNG.
 export function ChartFrame({
   title,
   subtitle,
   csvFilename,
   csvContent,
-  pngFilename,
+  // pngFilename intentionally unused — kept in the type for back-compat.
   children,
   rightControls,
+  methodologyKey,
+  methodologyText,
+  methodologySource,
 }: Props) {
-  const chartRef = useRef<HTMLDivElement>(null);
-  const [busy, setBusy] = useState<'idle' | 'copied' | 'exported' | 'error'>('idle');
-
-  const copyCsv = async () => {
-    try {
-      const blob = new Blob([csvContent], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = csvFilename;
-      a.click();
-      URL.revokeObjectURL(url);
-      setBusy('copied');
-      setTimeout(() => setBusy('idle'), 1500);
-    } catch (e) {
-      console.error(e);
-      setBusy('error');
-    }
-  };
-
-  const exportPng = async () => {
-    if (!chartRef.current) return;
-    try {
-      const dataUrl = await toPng(chartRef.current, {
-        backgroundColor: '#14171d',
-        pixelRatio: 2,
-        cacheBust: true,
-      });
-      const a = document.createElement('a');
-      a.download = pngFilename ?? csvFilename.replace(/\.csv$/, '.png');
-      a.href = dataUrl;
-      a.click();
-      setBusy('exported');
-      setTimeout(() => setBusy('idle'), 1500);
-    } catch (e) {
-      console.error(e);
-      setBusy('error');
-    }
-  };
+  const methodology =
+    methodologyKey || methodologyText
+      ? { methodologyKey, text: methodologyText, source: methodologySource }
+      : undefined;
 
   return (
-    <section className="rounded-lg border border-border bg-surface">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3">
-        <div className="min-w-0 flex-1">
-          <h2 className="text-small uppercase tracking-header-wide text-text-muted">{title}</h2>
-          {subtitle && <p className="mt-1 text-tiny text-text-secondary">{subtitle}</p>}
-        </div>
-        <div className="flex items-center gap-2">
-          {rightControls}
-          <button
-            onClick={copyCsv}
-            className="rounded-md border border-border bg-background px-2.5 py-1 text-tiny uppercase tracking-header-medium text-text-muted hover:bg-surface-hover hover:text-text-primary"
-          >
-            {busy === 'copied' ? '✓ CSV' : 'CSV'}
-          </button>
-          <button
-            onClick={exportPng}
-            className="rounded-md border border-border bg-background px-2.5 py-1 text-tiny uppercase tracking-header-medium text-text-muted hover:bg-surface-hover hover:text-text-primary"
-          >
-            {busy === 'exported' ? '✓ PNG' : 'PNG'}
-          </button>
-        </div>
-      </header>
-      <div ref={chartRef} className="bg-surface p-5">{children}</div>
-    </section>
+    <ChartCard
+      title={title}
+      subtitle={subtitle}
+      methodology={methodology}
+      csv={{ filename: csvFilename, content: csvContent }}
+      rightControls={rightControls}
+    >
+      {children}
+    </ChartCard>
   );
 }
