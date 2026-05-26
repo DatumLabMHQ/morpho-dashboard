@@ -11,7 +11,9 @@ import {
   YAxis,
 } from 'recharts';
 
+import { ChartAnnotations } from '@/components/chart-card/chart-annotations';
 import { tokens } from '@/lib/brand/tokens';
+import { useAnnotations } from '@/lib/annotations';
 import type { ClassShareOverTimePoint } from '@/lib/queries/assets';
 
 interface Props {
@@ -41,6 +43,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 const ORDER = ['stablecoin', 'lst', 'lrt', 'btc', 'eth', 'rwa', 'other'];
 
 export function ClassShareChart({ data }: Props) {
+  const annotations = useAnnotations('assets-class-share-time');
   if (data.length === 0) {
     return <div className="flex h-[340px] items-center justify-center text-small uppercase tracking-header-medium text-text-muted">No data</div>;
   }
@@ -95,6 +98,7 @@ export function ClassShareChart({ data }: Props) {
               connectNulls
             />
           ))}
+          <ChartAnnotations events={annotations} xFormat="iso-date" />
         </LineChart>
       </ResponsiveContainer>
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5">

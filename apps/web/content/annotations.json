@@ -1,0 +1,12 @@
+{
+  "_comment": "Chart annotations — dated events surfaced on time-series charts as dashed vertical reference lines + short labels. Authored as a flat list; each event tags which charts it belongs on via `chartKeys`. Standard keys correspond to time-series charts in this codebase. Add events as the research surfaces them.",
+  "events": [
+    {
+      "id": "morpho-blue-launch",
+      "timestamp": 1704067200,
+      "label": "Morpho Blue launch",
+      "description": "Morpho Blue immutable lending primitive deployed on Ethereum mainnet (Jan 1, 2024).",
+      "chartKeys": ["overview-protocol-tvl", "assets-class-share-time"]
+    }
+  ]
+}

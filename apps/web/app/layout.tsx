@@ -29,9 +29,32 @@ const THEME_INIT_SCRIPT = `
 })();
 `;
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://morpho-dashboard.vercel.app';
+
+// Note: do NOT set `openGraph.images` here. Next.js's file-convention
+// `app/opengraph-image.tsx` auto-injects the rendered PNG into every route
+// that doesn't override it. Setting it explicitly here would shadow that.
 export const metadata: Metadata = {
   title: 'Morpho Research Terminal · Datum Labs',
-  description: 'Multi-chain Morpho analytics — Datum Labs',
+  description:
+    'Multi-chain Morpho Blue analytics — markets, vaults, curators, rates, and asset composition across Ethereum, Base, Arbitrum, Polygon, Hyperliquid and more.',
+  metadataBase: new URL(SITE_URL),
+  openGraph: {
+    siteName: 'DatumLabs Research',
+    title: 'Morpho Research Terminal · Datum Labs',
+    description:
+      'Markets, vaults, curators, rates, and asset composition across every chain Morpho is live on.',
+    url: SITE_URL,
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    site: '@datumlabs',
+    creator: '@datumlabs',
+    title: 'Morpho Research Terminal · Datum Labs',
+    description: 'Multi-chain Morpho Blue analytics. Live terminal.',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
