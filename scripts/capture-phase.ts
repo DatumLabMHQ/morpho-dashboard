@@ -10,7 +10,7 @@ const __d = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__d, '..');
 const BRAND_DIR = join(REPO_ROOT, 'branding');
 
-const WIDTH = 1440;
+const WIDTH = Number(process.env.WIDTH ?? '1440');
 const PORT = process.env.PORT ?? '3001';
 const PAGE = process.env.PAGE ?? 'assets';
 const SUFFIX = process.env.SUFFIX ?? '';     // e.g. "-phase1" or "-light"

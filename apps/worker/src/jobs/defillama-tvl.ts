@@ -5,13 +5,27 @@ import { batchInsert } from '../db/batch.js';
 import { unixToDate } from '../lib/convert.js';
 
 // Slugs verified against /protocols (2026-05-25). Update if DefiLlama renames.
+//
+// MUST stay in sync with `apps/web/lib/protocols/comparison-set.ts`
+// LENDING_PROTOCOLS. The two lists are kept separate because the worker
+// can't import from the web app (no shared deps), but every slug used in
+// the Overview's sector chart needs a row in `protocol_tvl_daily` from this
+// sync. If a slug here returns 500 from /protocol/<slug> it lands in the
+// skipped[] result and gets dropped silently — check the sync_runs log.
 export const COMPARATOR_SLUGS = [
+  // Overcollateralized lending
   'morpho-blue',
   'aave-v3',
+  'aave-v2',
   'sparklend',
+  'compound-v3',
+  'compound-v2',
   'fluid-lending',
   'euler-v2',
-  'compound-v3',
+  // CDPs
+  'sky-lending',
+  'liquity-v1',
+  'liquity-v2',
 ] as const;
 
 // 730 days covers the user's "Jun 2024 (Morpho Blue launch) → today" chart

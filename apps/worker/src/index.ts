@@ -4,6 +4,7 @@ import { createClient, type SqlClient } from '@morpho-dashboard/db';
 import { finishSyncRun, startSyncRun, type SyncRunId, type SyncTrigger } from './db/sync-runs.js';
 import type { Env } from './env.js';
 import { syncAaveRates } from './jobs/aave-rates.js';
+import { aggregateOverviewWeekly } from './jobs/aggregate-overview-weekly.js';
 import { backfillMarketHistory } from './jobs/backfill-market-history.js';
 import { backfillVaultHistory } from './jobs/backfill-vault-history.js';
 import { syncChains } from './jobs/chains.js';
@@ -41,6 +42,7 @@ const JOBS: Record<string, JobHandler> = {
   'defillama-fees':             ({ sql, llama })  => syncDefillamaFees(sql, llama),
   'defillama-lending-denom':    ({ sql, llama })  => syncDefillamaLendingDenom(sql, llama),
   'aave-rates':                 ({ sql, llama })  => syncAaveRates(sql, llama),
+  'aggregate-overview-weekly':  ({ sql })         => aggregateOverviewWeekly(sql),
   // Backfill / perpetual (cursor- or SQL-driven; expose hasMore)
   'backfill-market-history':    ({ sql, morpho }) => backfillMarketHistory(sql, morpho),
   'backfill-vault-history':     ({ sql, morpho }) => backfillVaultHistory(sql, morpho),
@@ -55,6 +57,7 @@ const CRON_DISPATCH: Record<string, readonly string[]> = {
   '10 */6 * * *': ['defillama-tvl', 'defillama-fees'],
   '20 */6 * * *': ['defillama-lending-denom'],
   '30 */6 * * *': ['aave-rates'],
+  '40 4 * * *':   ['aggregate-overview-weekly'], // daily rebuild at 04:40 UTC
 };
 
 // Names of jobs callable via /backfill/tick (cursor-driven or perpetual).
