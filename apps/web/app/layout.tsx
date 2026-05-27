@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { JetBrains_Mono } from 'next/font/google';
 
-import { Sidebar } from '@/components/nav/sidebar';
+import { TopNav } from '@/components/nav/top-nav';
 import { ThemeProvider } from '@/components/theme-provider';
 
 import './globals.css';
@@ -65,8 +65,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen bg-background text-text-primary font-sans antialiased">
         <ThemeProvider>
-          <Sidebar />
-          <main className="ml-60 min-h-screen px-8 py-7">{children}</main>
+          <TopNav />
+          {/* Standard page wrapper from globals.css — caps at 1400px so dense
+              chart grids stay legible on ultra-wide displays. */}
+          <main className="max-w-[1400px] mx-auto px-4 lg:px-6 py-5 space-y-5">
+            {children}
+          </main>
         </ThemeProvider>
       </body>
     </html>
