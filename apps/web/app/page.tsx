@@ -1,321 +1,202 @@
-import Link from 'next/link';
-
 import { ChartFrame } from '@/components/chains/chart-frame';
-import { DualAreaChart } from '@/components/overview/dual-area-chart';
-import { KpiCardWithSparkline } from '@/components/overview/kpi-card-with-sparkline';
+import { KpiCardMultiDelta } from '@/components/overview/kpi-card-multi-delta';
+import { MarketShareChart } from '@/components/overview/market-share-chart';
+import { MixDonuts } from '@/components/overview/mix-donuts';
+import { NetSupplyFlowsSankey } from '@/components/overview/net-supply-flows-sankey';
+import { PerChainCardTile } from '@/components/overview/per-chain-card';
 import { ProtocolComparisonLine } from '@/components/overview/protocol-comparison-line';
-import { RecentLaunchesFeed } from '@/components/overview/recent-launches-feed';
-import { StackedAreaByChain } from '@/components/overview/stacked-area-by-chain';
-import { StackedBarWeeklyByChain } from '@/components/overview/stacked-bar-weekly-by-chain';
-import { TopFivePanel } from '@/components/overview/top-five-panel';
-import { PageProvenance } from '@/components/provenance';
+import { TopMarketsTable } from '@/components/overview/top-markets-table';
+import { CiteThisPage } from '@/components/provenance';
 import { EmptyState } from '@/components/ui/empty-state';
 import { hasDatabaseUrl } from '@/lib/db';
 import { fmtUsd } from '@/lib/format';
 import {
-  getDepositsAndLoansSeries,
-  getMetricByChainSeries,
-  getProtocolKpis,
+  getMarketShareByChain,
+  getMorphoMixDonuts,
+  getMorphoWideKpis,
+  getNetSupplyFlows,
+  getOverviewMarketsByPeriod,
+  getPerChainCardData,
   getProtocolRanking,
   getProtocolTvlComparison,
-  getRecentLaunches,
-  getTopFiveSnapshots,
-  getWeeklyBorrowInterestByChain,
-  getWeeklyCurationFeesByChain,
+  type MarketShareByChain,
+  type NetSupplyFlows,
+  type ShareMetric,
+  type TopMarketsPeriod,
+  type TopMarketRow,
 } from '@/lib/queries/overview';
 
 export const revalidate = 900;
 
-interface SP {
-  cdp?: string;       // '0' to hide
-  legacy?: string;    // '1' to collapse
-}
+const SHARE_METRICS: ShareMetric[] = ['deposits', 'borrows', 'liquidity', 'tvl', 'utilization'];
+const FLOW_VIEWS = ['chain', 'curator'] as const;
+const FLOW_PERIODS = ['W', 'M', 'Q'] as const;
+const MARKET_PERIODS: TopMarketsPeriod[] = ['current', 'week', 'month', 'quarter'];
 
-interface Props { searchParams: Promise<SP> }
-
-const pct = (x: number | null | undefined): string =>
-  x == null || !Number.isFinite(x) ? '—' : `${(x * 100).toFixed(1)}%`;
-
-export default async function OverviewPage({ searchParams }: Props) {
+export default async function OverviewPage() {
   if (!hasDatabaseUrl()) {
     return <EmptyState title="Database not configured" message="Local: apps/web/.env.local. Production: Vercel env." />;
   }
 
-  const sp = await searchParams;
-  const showCdp = sp.cdp !== '0';
-  const collapseLegacy = sp.legacy === '1';
-
-  const [
-    kpis, hero,
-    depositsByChain, loansByChain,
-    weeklyBorrow, weeklyFees,
-    comparison, ranking,
-    topFive, launches,
-  ] = await Promise.all([
-    getProtocolKpis(),
-    getDepositsAndLoansSeries(730),
-    getMetricByChainSeries('deposits', 730),
-    getMetricByChainSeries('loans', 730),
-    getWeeklyBorrowInterestByChain(104),
-    getWeeklyCurationFeesByChain(104),
-    getProtocolTvlComparison({ days: 730, includeCdp: true, collapseLegacy }),
+  // ─── Eager (above-the-fold): KPIs + market-share anchor ─────────────
+  const [kpis, shareSeries, ranking, comparison] = await Promise.all([
+    getMorphoWideKpis(),
+    Promise.all(SHARE_METRICS.map((m) => getMarketShareByChain(m, 730))),
     getProtocolRanking(),
-    getTopFiveSnapshots(),
-    getRecentLaunches(30),
+    getProtocolTvlComparison({ days: 730, includeCdp: false }),
+  ]);
+  const byMetric = Object.fromEntries(
+    SHARE_METRICS.map((m, i) => [m, shareSeries[i]!]),
+  ) as Record<ShareMetric, MarketShareByChain>;
+
+  // ─── Below-the-fold data ────────────────────────────────────────────
+  const [perChain, donuts, marketsByPeriodArr, ...flowsArr] = await Promise.all([
+    getPerChainCardData(),
+    getMorphoMixDonuts('current'),
+    Promise.all(MARKET_PERIODS.map((p) => getOverviewMarketsByPeriod(p))),
+    ...FLOW_VIEWS.flatMap((v) => FLOW_PERIODS.map((p) => getNetSupplyFlows(p, v))),
   ]);
 
-  // ─── Hero auto-subtitle ────────────────────────────────────────────
-  const lastHero = hero[hero.length - 1];
-  const heroLine = lastHero
-    ? `Total Deposits ${fmtUsd(lastHero.totalDeposits, { compact: true })} · Active Loans ${fmtUsd(lastHero.activeLoans, { compact: true })} · TVL ${fmtUsd(lastHero.tvl, { compact: true })}. Loans are ${pct(lastHero.totalDeposits > 0 ? lastHero.activeLoans / lastHero.totalDeposits : null)} of deposits.`
-    : 'Awaiting first sync.';
+  const marketsByPeriod = Object.fromEntries(
+    MARKET_PERIODS.map((p, i) => [p, marketsByPeriodArr[i]!]),
+  ) as Record<TopMarketsPeriod, TopMarketRow[]>;
 
-  // ─── Chain stack subtitles ─────────────────────────────────────────
-  const topChainName = (slug: string | null, series: typeof depositsByChain) =>
-    series.chains.find((c) => c.slug === slug)?.name ?? slug ?? '—';
+  const flowsByKey: Record<string, NetSupplyFlows> = {};
+  let fi = 0;
+  for (const v of FLOW_VIEWS) for (const p of FLOW_PERIODS) flowsByKey[`${v}:${p}`] = flowsArr[fi++]!;
 
-  const depositsSub = `${topChainName(depositsByChain.topChainSlug, depositsByChain)} is ${pct(depositsByChain.topChainShareLatest)} of total deposits as of ${kpis.asOfDate} — up from ${pct(depositsByChain.topChainShare12moAgo)} 12 months ago.`;
-  const loansSub = `${topChainName(loansByChain.topChainSlug, loansByChain)} accounts for ${pct(loansByChain.topChainShareLatest)} of active loans. Borrow/deposit ratio across the protocol: ${pct(lastHero && lastHero.totalDeposits > 0 ? lastHero.activeLoans / lastHero.totalDeposits : null)}.`;
+  // Chain → palette index, shared across market-share legend, per-chain cards
+  // and the top-markets dots so a chain is always the same color.
+  const chainColorIndex: Record<string, number> = {};
+  byMetric.deposits.chains.forEach((c, i) => { chainColorIndex[c.slug] = i; });
+  perChain.forEach((c, i) => { if (!(c.slug in chainColorIndex)) chainColorIndex[c.slug] = i; });
 
-  // ─── Weekly subtitles ──────────────────────────────────────────────
-  const borrowTopName = topChainName(weeklyBorrow.lastWeekTopChain, weeklyBorrow as unknown as typeof depositsByChain);
-  const feesTopName = topChainName(weeklyFees.lastWeekTopChain, weeklyFees as unknown as typeof depositsByChain);
-  const weeklyBorrowSub = `Last week: ${fmtUsd(weeklyBorrow.lastWeekTotalUsd, { compact: true })} in borrow interest paid · ${pct(weeklyBorrow.lastWeekTopChainSharePct)} from ${borrowTopName}. Annual run-rate: ${fmtUsd(weeklyBorrow.annualRunRateUsd, { compact: true })}.`;
-  const weeklyFeesSub = `Last week: ${fmtUsd(weeklyFees.lastWeekTotalUsd, { compact: true })} to curators · ${pct(weeklyFees.lastWeekTopChainSharePct)} on ${feesTopName}. Annual run-rate: ${fmtUsd(weeklyFees.annualRunRateUsd, { compact: true })}.`;
-
-  // ─── Sector comparison subtitle ────────────────────────────────────
-  const compSub = (() => {
-    const cur = ranking.morphoVsAaveV3Pct;
-    const old = ranking.morphoVsAaveV3Pct12moAgo;
-    const rankLine = `Morpho ranks #${ranking.morphoRank} of ${ranking.totalLendingProtocols} overcollateralized lending protocols`;
-    const gap = ranking.gapToOneAboveUsd != null && ranking.oneAbove
-      ? ` — ${fmtUsd(ranking.gapToOneAboveUsd, { compact: true })} behind ${ranking.oneAbove.label}.`
-      : '.';
-    const share = cur != null ? `Morpho TVL is ${pct(cur)} of Aave V3's globally` : 'Morpho TVL vs Aave V3 unavailable';
-    const sharePrior = old != null ? `, vs ${pct(old)} one year ago` : '';
-    return `${share}${sharePrior}. ${rankLine}${gap}`;
-  })();
-
-  // ─── CSV builders (server-side) ────────────────────────────────────
-  const csvHero = ['day,total_deposits,active_loans,tvl',
-    ...hero.map((p) => [p.day, p.totalDeposits, p.activeLoans, p.tvl].join(','))
-  ].join('\n');
-  const csvDepositsByChain = ['day,' + depositsByChain.chains.map((c) => c.slug).join(','),
-    ...depositsByChain.points.map((p) =>
-      [p.day, ...depositsByChain.chains.map((c) => p[c.slug] ?? 0)].join(','))
-  ].join('\n');
-  const csvLoansByChain = ['day,' + loansByChain.chains.map((c) => c.slug).join(','),
-    ...loansByChain.points.map((p) =>
-      [p.day, ...loansByChain.chains.map((c) => p[c.slug] ?? 0)].join(','))
-  ].join('\n');
-  const csvWeeklyBorrow = ['week_start,' + weeklyBorrow.chains.map((c) => c.slug).join(','),
-    ...weeklyBorrow.buckets.map((b) =>
-      [b.weekStart, ...weeklyBorrow.chains.map((c) => b.byChain[c.slug] ?? 0)].join(','))
-  ].join('\n');
-  const csvWeeklyFees = ['week_start,' + weeklyFees.chains.map((c) => c.slug).join(','),
-    ...weeklyFees.buckets.map((b) =>
-      [b.weekStart, ...weeklyFees.chains.map((c) => b.byChain[c.slug] ?? 0)].join(','))
-  ].join('\n');
-  const csvComparison = ['protocol,day,tvl_usd',
-    ...comparison.lending.flatMap((s) => s.points.map((p) => [s.label.replace(/,/g, ' '), p.day, p.tvl].join(','))),
-    ...comparison.cdp.flatMap((s) => s.points.map((p) => [s.label.replace(/,/g, ' '), p.day, p.tvl].join(','))),
-  ].join('\n');
-
-  // ─── Toggle hrefs for the comparison chart ─────────────────────────
-  const toggleUrl = (next: { cdp?: string; legacy?: string }): string => {
-    const params = new URLSearchParams();
-    const cdp = next.cdp ?? sp.cdp;
-    const legacy = next.legacy ?? sp.legacy;
-    if (cdp === '0') params.set('cdp', '0');
-    if (legacy === '1') params.set('legacy', '1');
-    const qs = params.toString();
-    return qs ? `/?${qs}` : '/';
-  };
+  // Section 8 auto-subtitle.
+  const sectorSub = ranking.oneAbove && ranking.gapToOneAboveUsd != null
+    ? `Morpho ranks #${ranking.morphoRank} of ${ranking.totalLendingProtocols} overcollateralized lending protocols by TVL. Gap to ${ranking.oneAbove.label}: ${fmtUsd(ranking.gapToOneAboveUsd, { compact: true })}.`
+    : `Morpho ranks #${ranking.morphoRank} of ${ranking.totalLendingProtocols} overcollateralized lending protocols by TVL.`;
 
   return (
     <div className="space-y-6">
       {/* SECTION 1 — HEADER */}
       <header>
         <h1 className="text-[28px] uppercase tracking-header-medium text-text-primary leading-none">
-          Sector Overview
+          Morpho Sector Overview
         </h1>
         <p className="mt-2 text-body text-text-secondary">
-          Morpho across all chains
-          {kpis.asOfDate ? <span className="text-text-muted"> · as of {kpis.asOfDate}</span> : null}
+          Aggregate metrics across{' '}
+          <span className="text-text-primary">{kpis.chainCount}</span> chains,{' '}
+          <span className="text-text-primary">{kpis.curatorCount}</span> curators,{' '}
+          <span className="text-text-primary">{kpis.marketCount}</span> markets
+          <span className="text-text-muted"> · as of {kpis.asOfDate}</span>
+        </p>
+        <p className="mt-1 text-tiny uppercase tracking-header-medium text-text-muted">
+          Source: Morpho GraphQL API · DefiLlama · FRED (T-bill rates)
         </p>
       </header>
 
       {/* SECTION 2 — KPI STRIP */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
-        <KpiCardWithSparkline label="Total Deposits"          value={fmtUsd(kpis.totalDeposits.value, { compact: true })}        deltaPct={kpis.totalDeposits.delta30dPct}        accent="chart-1" sparkline={kpis.totalDeposits.sparkline} />
-        <KpiCardWithSparkline label="Active Loans"            value={fmtUsd(kpis.activeLoans.value, { compact: true })}          deltaPct={kpis.activeLoans.delta30dPct}          accent="chart-3" sparkline={kpis.activeLoans.sparkline} />
-        <KpiCardWithSparkline label="TVL"                     value={fmtUsd(kpis.tvl.value, { compact: true })}                  deltaPct={kpis.tvl.delta30dPct}                  accent="chart-2" sparkline={kpis.tvl.sparkline} />
-        <KpiCardWithSparkline label="Total Supply"            value={fmtUsd(kpis.totalSupply.value, { compact: true })}          deltaPct={kpis.totalSupply.delta30dPct}          accent="chart-5" sparkline={kpis.totalSupply.sparkline} />
-        <KpiCardWithSparkline label="Annual Borrow Interest"  value={fmtUsd(kpis.annualBorrowInterest.value, { compact: true })} deltaPct={kpis.annualBorrowInterest.delta30dPct} accent="chart-6" sparkline={kpis.annualBorrowInterest.sparkline} />
-        <KpiCardWithSparkline label="Annual Curation Fees"    value={fmtUsd(kpis.annualCurationFees.value, { compact: true })}   deltaPct={kpis.annualCurationFees.delta30dPct}   accent="chart-7" sparkline={kpis.annualCurationFees.sparkline} />
-        <KpiCardWithSparkline label="Assets Under Curation"   value={fmtUsd(kpis.assetsUnderCuration.value, { compact: true })}  deltaPct={kpis.assetsUnderCuration.delta30dPct}  accent="chart-4" sparkline={kpis.assetsUnderCuration.sparkline} />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <KpiCardMultiDelta label="Total Deposits"        data={kpis.totalDeposits}      accent="chart-1" />
+        <KpiCardMultiDelta label="Active Borrows"        data={kpis.activeBorrows}      accent="chart-3" />
+        <KpiCardMultiDelta label="Available Liquidity"   data={kpis.availableLiquidity} accent="chart-2" />
+        <KpiCardMultiDelta label="Morpho Utilization"    data={kpis.utilization}        accent="chart-5" />
+        <KpiCardMultiDelta label="Curator-Fee Take Rate" data={kpis.curatorFeeTakeRate} accent="chart-7" />
+        <KpiCardMultiDelta label="% Real Yield Spread"   data={kpis.realYieldSpread}    accent="chart-6" />
       </div>
+      {!kpis.tbillAvailable && (
+        <p className="text-tiny uppercase tracking-header-medium text-text-muted">
+          Real-yield spread shows &quot;—&quot; until a FRED_API_KEY is configured on the worker (free; series DTB3).
+        </p>
+      )}
 
-      {/* SECTION 3 — HERO */}
+      {/* SECTION 3 — MARKET SHARE (anchor) */}
       <ChartFrame
-        title="Deposits & Active Loans — all chains, all time"
-        subtitle={heroLine}
-        csvFilename="overview-deposits-loans.csv"
-        csvContent={csvHero}
+        title="Morpho by chain"
+        subtitle="Share of Morpho's selected metric across chains over time. Top 10 chains; rest aggregated as Other."
+        csvFilename="overview-market-share-by-chain.csv"
+        csvContent={['day,' + byMetric.deposits.chains.map((c) => c.slug).join(','),
+          ...byMetric.deposits.points.map((p) => [p.day, ...byMetric.deposits.chains.map((c) => p[c.slug] ?? 0)].join(','))
+        ].join('\n')}
       >
-        <DualAreaChart data={hero} />
+        <MarketShareChart byMetric={byMetric} />
       </ChartFrame>
 
-      {/* SECTION 4 — Deposits by chain */}
-      <ChartFrame
-        title="Deposits by chain"
-        subtitle={depositsSub}
-        csvFilename="overview-deposits-by-chain.csv"
-        csvContent={csvDepositsByChain}
-      >
-        <StackedAreaByChain data={depositsByChain} />
-      </ChartFrame>
-
-      {/* SECTION 5 — Active loans by chain */}
-      <ChartFrame
-        title="Active loans by chain"
-        subtitle={loansSub}
-        csvFilename="overview-loans-by-chain.csv"
-        csvContent={csvLoansByChain}
-      >
-        <StackedAreaByChain data={loansByChain} />
-      </ChartFrame>
-
-      {/* SECTION 6 — Weekly borrow interest by chain */}
-      <ChartFrame
-        title="Weekly borrow interest paid — by chain"
-        subtitle={weeklyBorrowSub}
-        csvFilename="overview-weekly-borrow-interest.csv"
-        csvContent={csvWeeklyBorrow}
-      >
-        <StackedBarWeeklyByChain data={weeklyBorrow} />
-      </ChartFrame>
-
-      {/* SECTION 7 — Weekly curation fees by chain */}
-      <ChartFrame
-        title="Weekly curation fees — by chain"
-        subtitle={weeklyFeesSub}
-        csvFilename="overview-weekly-curation-fees.csv"
-        csvContent={csvWeeklyFees}
-      >
-        <StackedBarWeeklyByChain data={weeklyFees} />
-      </ChartFrame>
-
-      {/* SECTION 8 — Sector TVL comparison */}
-      <ChartFrame
-        title="Lending TVL comparison — top protocols, all time"
-        subtitle={compSub}
-        csvFilename="overview-sector-tvl-comparison.csv"
-        csvContent={csvComparison}
-      >
-        <div className="space-y-3">
-          {/* Toggle row */}
-          <div className="flex flex-wrap items-center gap-2 text-tiny uppercase tracking-header-medium">
-            <ToggleLink
-              label={showCdp ? 'Hide CDPs' : 'Show CDPs'}
-              active={showCdp}
-              href={toggleUrl({ cdp: showCdp ? '0' : '' })}
-            />
-            <ToggleLink
-              label={collapseLegacy ? 'Show v2 + v3 separately' : 'Collapse legacy versions'}
-              active={collapseLegacy}
-              href={toggleUrl({ legacy: collapseLegacy ? '' : '1' })}
-            />
-          </div>
-          <ProtocolComparisonLine data={comparison} showCdp={showCdp} />
+      {/* SECTION 4 — PER-CHAIN CARDS */}
+      <section className="space-y-3">
+        <h2 className="text-small uppercase tracking-header-wide text-text-muted">By chain — top 8 by TVL</h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {perChain.map((card) => (
+            <PerChainCardTile key={card.slug} card={card} colorIndex={chainColorIndex[card.slug] ?? 0} />
+          ))}
         </div>
+      </section>
+
+      {/* SECTION 5 — NET SUPPLY FLOWS SANKEY */}
+      <ChartFrame
+        title="Net supply flows"
+        subtitle="Net change in deposit base over the period · inflows ▲ left, outflows ▼ right, components in the middle."
+        csvFilename="overview-net-supply-flows.csv"
+        csvContent={(() => {
+          const f = flowsByKey['chain:W']!;
+          return ['node_from,node_to,net_usd',
+            ...f.links.map((l) => [f.nodes[l.source]?.name ?? '', f.nodes[l.target]?.name ?? '', l.value].join(','))
+          ].join('\n');
+        })()}
+      >
+        <NetSupplyFlowsSankey byKey={flowsByKey} />
       </ChartFrame>
 
-      {/* SECTION 9 — Entity growth — placeholder note (the series is fetched
-          for the next chart-density pass; keeping it light here so the
-          Overview ships without re-introducing dual-axis complexity until
-          we have the chart-card story for it dialed). */}
+      {/* SECTION 6 — MIX DONUTS */}
+      <ChartFrame
+        title="Collateral mix + borrow mix"
+        subtitle={`Deposit base and debt by asset · as of ${donuts.asOfDate}. Top 7 assets shown individually; rest as Other.`}
+        csvFilename="overview-mix.csv"
+        csvContent={['side,symbol,usd',
+          ...donuts.collateralMix.map((s) => ['collateral', s.symbol, s.usd].join(',')),
+          ...donuts.borrowMix.map((s) => ['borrow', s.symbol, s.usd].join(',')),
+        ].join('\n')}
+      >
+        <MixDonuts
+          collateralMix={donuts.collateralMix}
+          collateralTotal={donuts.collateralTotal}
+          borrowMix={donuts.borrowMix}
+          borrowTotal={donuts.borrowTotal}
+        />
+      </ChartFrame>
 
-      {/* SECTION 10 — Top-5 trio */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <TopFivePanel
-          title="Top 5 markets · supply USD"
-          viewAllHref="/markets"
-          rows={topFive.topMarkets.map((m) => ({
-            label: m.pair,
-            sub: m.chainSlug ?? undefined,
-            valueUsd: m.supplyUsd,
-          }))}
-        />
-        <TopFivePanel
-          title="Top 5 vaults · TVL"
-          viewAllHref="/vaults"
-          rows={topFive.topVaults.map((v) => ({
-            label: v.name ?? v.address.slice(0, 10),
-            sub: v.chainSlug ?? undefined,
-            valueUsd: v.tvlUsd,
-          }))}
-        />
-        <TopFivePanel
-          title="Top 5 curators · TVL"
-          viewAllHref="/curators"
-          rows={topFive.topCurators.map((c) => ({
-            label: c.name,
-            valueUsd: c.tvlUsd,
-            href: `/curators/${c.id}`,
-          }))}
-        />
+      {/* SECTION 7 — TOP MARKETS */}
+      <ChartFrame
+        title="Top markets across Morpho"
+        subtitle="Period / view / sort toggles. Supply & borrow APY clamped at 100% (saturated-util IRM artifacts shown as —). Click a row to copy its market key."
+        csvFilename="overview-top-markets.csv"
+        csvContent={['rank,pair,chain,supply_usd,available_liq,borrowed,util,supply_apy,borrow_apy',
+          ...marketsByPeriod.current.slice(0, 50).map((m, i) =>
+            [i + 1, m.pair.replace(/,/g, ' '), m.chainSlug ?? '', m.supplyUsd, m.liquidityUsd, m.borrowUsd, m.utilization ?? '', m.supplyApy ?? '', m.borrowApy ?? ''].join(','))
+        ].join('\n')}
+      >
+        <TopMarketsTable byPeriod={marketsByPeriod} chainColorIndex={chainColorIndex} />
+      </ChartFrame>
+
+      {/* SECTION 8 — LENDING SECTOR POSITION (compact) */}
+      <ChartFrame
+        title="Morpho in the lending sector"
+        subtitle={sectorSub}
+        csvFilename="overview-sector-position.csv"
+        csvContent={['protocol,day,tvl_usd',
+          ...comparison.lending.flatMap((s) => s.points.map((p) => [s.label.replace(/,/g, ' '), p.day, p.tvl].join(',')))
+        ].join('\n')}
+      >
+        <ProtocolComparisonLine data={comparison} showCdp={false} />
+      </ChartFrame>
+
+      {/* SECTION 9 — METHODOLOGY + CITE */}
+      <div className="tui-card bg-card-bg border border-card-border rounded p-4 text-tiny uppercase tracking-header-medium text-text-muted space-y-1">
+        <p>Data sources: Morpho GraphQL API · DefiLlama · FRED (T-bill rates). Updated every 6 hours.</p>
+        <p>TVL definition matches Morpho&apos;s published dashboard: deposits − active loans.</p>
+        <p>Saturated-utilization IRM blow-ups (supply APY ≥ 100%) are excluded from every aggregate as data artifacts.</p>
       </div>
-
-      {/* SECTION 11 — Recent launches */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <RecentLaunchesFeed
-          title="Launched in last 30 days — markets"
-          rows={launches.markets.map((m) => ({
-            date: m.createdAt,
-            label: m.pair,
-            chainName: m.chainName,
-          }))}
-        />
-        <RecentLaunchesFeed
-          title="Launched in last 30 days — vaults"
-          rows={launches.vaults.map((v) => ({
-            date: v.createdAt,
-            label: v.name,
-            chainName: v.chainName,
-          }))}
-        />
-      </div>
-
-      {/* SECTION 12 — Provenance footer */}
-      <PageProvenance
-        pageTitle="Sector Overview"
-        pageUrl="/"
-        fetchedAt={kpis.asOfDate ?? new Date().toISOString()}
-        source="Morpho Blue GraphQL + DefiLlama TVL + overview_weekly_chain_metrics"
-        methodology={{
-          text:
-            'Every KPI is built from one of seven distinct lenses: Total Deposits (supply + collateral), Active Loans (borrow), TVL (deposits − loans), Total Supply (loan-side only), Annual Borrow Interest (Σ borrow_usd × borrow_apy, annualized), Annual Curation Fees (Σ vault TVL × pre-fee APY × fee, annualized), and Assets Under Curation (Σ vault TVL).\nWeekly bar charts read from morpho_.overview_weekly_chain_metrics, a daily-rebuilt aggregation. All other charts compute on the fly with unstable_cache(900). Sector TVL comparison uses LENDING_PROTOCOLS — eight overcollateralized lending protocols and three CDPs from lib/protocols/comparison-set.ts.\nSaturated-util IRM blow-ups (supply_apy ≥ 100%) are excluded from every aggregate as data artifacts. They still appear in /markets and /rates so the operator can see them.',
-          source: 'morpho_.market_state_daily · vault_state_daily · protocol_tvl_daily · overview_weekly_chain_metrics',
-        }}
-      />
+      <CiteThisPage pageTitle="Morpho Sector Overview" pageUrl="/" />
     </div>
-  );
-}
-
-/** Small toggle pill used in the sector-comparison chart header. */
-function ToggleLink({ label, active, href }: { label: string; active: boolean; href: string }) {
-  return (
-    <Link
-      href={href}
-      className="rounded-md border px-2.5 py-1 transition-colors"
-      style={{
-        borderColor: active ? 'rgb(var(--accent-rgb) / 0.4)' : 'var(--card-border)',
-        background: active ? 'rgb(var(--accent-rgb) / 0.1)' : 'transparent',
-        color: active ? 'var(--accent-orange)' : 'var(--text-muted)',
-      }}
-    >
-      {label}
-    </Link>
   );
 }

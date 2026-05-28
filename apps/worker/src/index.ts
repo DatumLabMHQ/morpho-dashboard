@@ -4,7 +4,9 @@ import { createClient, type SqlClient } from '@morpho-dashboard/db';
 import { finishSyncRun, startSyncRun, type SyncRunId, type SyncTrigger } from './db/sync-runs.js';
 import type { Env } from './env.js';
 import { syncAaveRates } from './jobs/aave-rates.js';
+import { aggregateAssetFlowsWeekly } from './jobs/aggregate-asset-flows-weekly.js';
 import { aggregateOverviewWeekly } from './jobs/aggregate-overview-weekly.js';
+import { syncFredTbill } from './jobs/fred-tbill.js';
 import { backfillMarketHistory } from './jobs/backfill-market-history.js';
 import { backfillVaultHistory } from './jobs/backfill-vault-history.js';
 import { syncChains } from './jobs/chains.js';
@@ -28,6 +30,7 @@ interface JobCtx {
   sql: SqlClient;
   morpho: MorphoClient;
   llama: DefiLlamaClient;
+  fredApiKey: string | undefined;
 }
 
 type JobHandler = (ctx: JobCtx) => Promise<JobResult>;
@@ -43,6 +46,8 @@ const JOBS: Record<string, JobHandler> = {
   'defillama-lending-denom':    ({ sql, llama })  => syncDefillamaLendingDenom(sql, llama),
   'aave-rates':                 ({ sql, llama })  => syncAaveRates(sql, llama),
   'aggregate-overview-weekly':  ({ sql })         => aggregateOverviewWeekly(sql),
+  'aggregate-asset-flows-weekly': ({ sql })       => aggregateAssetFlowsWeekly(sql),
+  'fred-tbill':                 ({ sql, fredApiKey }) => syncFredTbill(sql, fredApiKey),
   // Backfill / perpetual (cursor- or SQL-driven; expose hasMore)
   'backfill-market-history':    ({ sql, morpho }) => backfillMarketHistory(sql, morpho),
   'backfill-vault-history':     ({ sql, morpho }) => backfillVaultHistory(sql, morpho),
@@ -57,7 +62,7 @@ const CRON_DISPATCH: Record<string, readonly string[]> = {
   '10 */6 * * *': ['defillama-tvl', 'defillama-fees'],
   '20 */6 * * *': ['defillama-lending-denom'],
   '30 */6 * * *': ['aave-rates'],
-  '40 4 * * *':   ['aggregate-overview-weekly'], // daily rebuild at 04:40 UTC
+  '40 4 * * *':   ['aggregate-overview-weekly', 'aggregate-asset-flows-weekly', 'fred-tbill'], // daily 04:40 UTC
 };
 
 // Names of jobs callable via /backfill/tick (cursor-driven or perpetual).
@@ -75,6 +80,7 @@ function newCtx(env: Env): JobCtx {
     sql: createClient(env.DATABASE_URL),
     morpho: new MorphoClient(),
     llama: new DefiLlamaClient(),
+    fredApiKey: env.FRED_API_KEY,
   };
 }
 

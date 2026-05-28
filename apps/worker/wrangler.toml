@@ -11,7 +11,7 @@ crons = [
   "10 */6 * * *",  # defillama-tvl, defillama-fees
   "20 */6 * * *",  # defillama-lending-denom
   "30 */6 * * *",  # aave-rates (DefiLlama yields → aave_rates_daily)
-  "40 4 * * *",    # aggregate-overview-weekly (daily 04:40 UTC rebuild)
+  "40 4 * * *",    # aggregate-overview-weekly + asset-flows-weekly + fred-tbill (daily 04:40 UTC)
 ]
 
 [vars]
