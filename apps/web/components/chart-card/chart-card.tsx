@@ -71,11 +71,13 @@ export function ChartCard({
   subtitle,
   methodology,
   timeToggle,
-  csv,
   footer,
   rightControls,
   children,
 }: Props) {
+  // Note: `csv` prop is still accepted for back-compat with ChartFrame call
+  // sites but no longer rendered — chart actions are limited to screenshot +
+  // expand per design.
   const cardRef = useRef<HTMLElement>(null);
 
   // Stable id used by the watermark / class hook in globals.css.
@@ -122,7 +124,6 @@ export function ChartCard({
             />
           )}
           {rightControls}
-          {csv && <CsvButton spec={csv} />}
           <ChartActions cardRef={cardRef} title={title} />
         </div>
       </header>
@@ -138,46 +139,3 @@ export function ChartCard({
   );
 }
 
-/** Local CSV-download button. Tiny enough to inline. Hidden during PNG export. */
-function CsvButton({ spec }: { spec: CsvSpec }) {
-  const onClick = () => {
-    const blob = new Blob([spec.content], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = spec.filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title="Download CSV"
-      aria-label="Download CSV"
-      data-chart-export-hide="csv-button"
-      style={{
-        padding: '3px 8px',
-        borderRadius: 3,
-        border: '1px solid var(--card-border)',
-        background: 'transparent',
-        color: 'var(--text-muted)',
-        cursor: 'pointer',
-        fontSize: 10,
-        textTransform: 'uppercase',
-        letterSpacing: '0.08em',
-        transition: 'color 0.15s ease, border-color 0.15s ease',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.color = 'var(--text-primary)';
-        e.currentTarget.style.borderColor = 'var(--border-bright)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.color = 'var(--text-muted)';
-        e.currentTarget.style.borderColor = 'var(--card-border)';
-      }}
-    >
-      CSV
-    </button>
-  );
-}

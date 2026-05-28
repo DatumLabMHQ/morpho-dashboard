@@ -18,7 +18,7 @@ import {
 } from '../protocols/comparison-set.js';
 import { getDb } from '../db.js';
 
-const CACHE_VERSION = 'overview-v6';
+const CACHE_VERSION = 'overview-v7';
 const TTL = 900;
 
 // Shared asset-class CASE (mirrors the rest of the dashboard).
@@ -99,7 +99,13 @@ export interface PerChainCard {
   netDeposits30d: number | null;
 }
 
-export interface SankeyNode { name: string; kind: 'inflow' | 'component' | 'outflow' }
+export interface SankeyNode {
+  name: string;
+  kind: 'inflow' | 'component' | 'outflow';
+  /** Display value: inflow/outflow nodes carry their (positive) throughput;
+   *  component nodes carry their signed net (incoming − outgoing). */
+  usd: number;
+}
 export interface SankeyLink { source: number; target: number; value: number }
 export interface NetSupplyFlows {
   view: 'chain' | 'curator';
@@ -111,8 +117,9 @@ export interface NetSupplyFlows {
 }
 
 export interface AssetSlice { symbol: string; usd: number }
+export type MixPeriod = 'current' | 'week' | 'month' | 'quarter';
 export interface MixDonuts {
-  period: 'current' | 'week' | 'month';
+  period: MixPeriod;
   asOfDate: string;
   collateralMix: AssetSlice[];
   collateralTotal: number;
@@ -579,7 +586,7 @@ function buildSankey(
   const nodeId = (name: string, kind: SankeyNode['kind']): number => {
     const key = `${kind}:${name}`;
     let i = idx.get(key);
-    if (i == null) { i = nodes.length; nodes.push({ name, kind }); idx.set(key, i); }
+    if (i == null) { i = nodes.length; nodes.push({ name, kind, usd: 0 }); idx.set(key, i); }
     return i;
   };
 
@@ -610,6 +617,20 @@ function buildSankey(
   const links: SankeyLink[] = [...linkAgg.entries()].map(([k, value]) => {
     const [s, t] = k.split('>').map(Number);
     return { source: s!, target: t!, value };
+  });
+
+  // Per-node display value: inflow nodes = outgoing throughput, outflow nodes
+  // = incoming throughput, component nodes = signed net (incoming − outgoing).
+  const incoming = new Array(nodes.length).fill(0);
+  const outgoing = new Array(nodes.length).fill(0);
+  for (const l of links) {
+    outgoing[l.source] += l.value;
+    incoming[l.target] += l.value;
+  }
+  nodes.forEach((n, i) => {
+    if (n.kind === 'inflow') n.usd = outgoing[i];
+    else if (n.kind === 'outflow') n.usd = incoming[i];
+    else n.usd = incoming[i] - outgoing[i]; // component signed net
   });
 
   return { nodes, links, netInflowUsd: netInflow, netOutflowUsd: netOutflow };
@@ -691,9 +712,9 @@ export const getNetSupplyFlows = unstable_cache(
 const DONUT_TOP = 7;
 
 export const getMorphoMixDonuts = unstable_cache(
-  async (period: 'current' | 'week' | 'month' = 'current'): Promise<MixDonuts> => {
+  async (period: 'current' | 'week' | 'month' | 'quarter' = 'current'): Promise<MixDonuts> => {
     const sql = getDb();
-    const offsetDays = period === 'week' ? 7 : period === 'month' ? 30 : 0;
+    const offsetDays = period === 'week' ? 7 : period === 'month' ? 30 : period === 'quarter' ? 91 : 0;
 
     const rows = (await sql(
       `

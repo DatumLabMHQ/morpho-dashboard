@@ -17,7 +17,7 @@
  */
 
 import { toPng } from 'html-to-image';
-import { Copy, Maximize2, Minimize2, Download } from 'lucide-react';
+import { Camera, Maximize2, Minimize2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -30,7 +30,7 @@ interface Props {
 export function ChartActions({ cardRef, title }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [flash, setFlash] = useState<'png' | 'link' | null>(null);
+  const [flash, setFlash] = useState<'png' | null>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
 
   // Mount: toggle `.chart-expanded` on the card + lock body scroll while open.
@@ -110,21 +110,6 @@ export function ChartActions({ cardRef, title }: Props) {
     }
   }
 
-  async function onCopyLink() {
-    try {
-      // Current full URL, including search params (URL filter / sort state).
-      // Adding a #fragment anchor to the card would be nicer but we don't
-      // have stable IDs on every card yet — leave URL as-is.
-      const url = typeof window !== 'undefined' ? window.location.href : '';
-      await navigator.clipboard.writeText(url);
-      setFlash('link');
-      setTimeout(() => setFlash(null), 1500);
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error('[chart-actions] copy link failed:', err);
-    }
-  }
-
   const iconBtn = {
     padding: 4,
     borderRadius: 3,
@@ -145,24 +130,13 @@ export function ChartActions({ cardRef, title }: Props) {
         type="button"
         onClick={onPngDownload}
         disabled={busy}
-        title={flash === 'png' ? 'Downloaded ✓' : 'Download PNG'}
-        aria-label="Download chart as PNG"
+        title={flash === 'png' ? 'Saved ✓' : 'Screenshot (PNG)'}
+        aria-label="Save chart screenshot as PNG"
         style={{ ...iconBtn, opacity: busy ? 0.5 : 1 }}
         onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
         onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
       >
-        <Download size={12} />
-      </button>
-      <button
-        type="button"
-        onClick={onCopyLink}
-        title={flash === 'link' ? 'Copied ✓' : 'Copy link'}
-        aria-label="Copy link to this view"
-        style={iconBtn}
-        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
-        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
-      >
-        <Copy size={12} />
+        <Camera size={12} />
       </button>
       <button
         type="button"

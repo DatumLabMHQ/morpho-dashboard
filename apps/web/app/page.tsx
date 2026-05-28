@@ -20,6 +20,8 @@ import {
   getProtocolRanking,
   getProtocolTvlComparison,
   type MarketShareByChain,
+  type MixDonuts as MixDonutsData,
+  type MixPeriod,
   type NetSupplyFlows,
   type ShareMetric,
   type TopMarketsPeriod,
@@ -32,6 +34,7 @@ const SHARE_METRICS: ShareMetric[] = ['deposits', 'borrows', 'liquidity', 'tvl',
 const FLOW_VIEWS = ['chain', 'curator'] as const;
 const FLOW_PERIODS = ['W', 'M', 'Q'] as const;
 const MARKET_PERIODS: TopMarketsPeriod[] = ['current', 'week', 'month', 'quarter'];
+const MIX_PERIODS: MixPeriod[] = ['current', 'week', 'month', 'quarter'];
 
 export default async function OverviewPage() {
   if (!hasDatabaseUrl()) {
@@ -50,12 +53,16 @@ export default async function OverviewPage() {
   ) as Record<ShareMetric, MarketShareByChain>;
 
   // ─── Below-the-fold data ────────────────────────────────────────────
-  const [perChain, donuts, marketsByPeriodArr, ...flowsArr] = await Promise.all([
+  const [perChain, donutsArr, marketsByPeriodArr, ...flowsArr] = await Promise.all([
     getPerChainCardData(),
-    getMorphoMixDonuts('current'),
+    Promise.all(MIX_PERIODS.map((p) => getMorphoMixDonuts(p))),
     Promise.all(MARKET_PERIODS.map((p) => getOverviewMarketsByPeriod(p))),
     ...FLOW_VIEWS.flatMap((v) => FLOW_PERIODS.map((p) => getNetSupplyFlows(p, v))),
   ]);
+
+  const donutsByPeriod = Object.fromEntries(
+    MIX_PERIODS.map((p, i) => [p, donutsArr[i]!]),
+  ) as Record<MixPeriod, MixDonutsData>;
 
   const marketsByPeriod = Object.fromEntries(
     MARKET_PERIODS.map((p, i) => [p, marketsByPeriodArr[i]!]),
@@ -151,19 +158,14 @@ export default async function OverviewPage() {
       {/* SECTION 6 — MIX DONUTS */}
       <ChartFrame
         title="Collateral mix + borrow mix"
-        subtitle={`Deposit base and debt by asset · as of ${donuts.asOfDate}. Top 7 assets shown individually; rest as Other.`}
+        subtitle={`Deposit base and debt by asset · as of ${donutsByPeriod.current.asOfDate}. Top 7 assets shown individually; rest as Other.`}
         csvFilename="overview-mix.csv"
         csvContent={['side,symbol,usd',
-          ...donuts.collateralMix.map((s) => ['collateral', s.symbol, s.usd].join(',')),
-          ...donuts.borrowMix.map((s) => ['borrow', s.symbol, s.usd].join(',')),
+          ...donutsByPeriod.current.collateralMix.map((s) => ['collateral', s.symbol, s.usd].join(',')),
+          ...donutsByPeriod.current.borrowMix.map((s) => ['borrow', s.symbol, s.usd].join(',')),
         ].join('\n')}
       >
-        <MixDonuts
-          collateralMix={donuts.collateralMix}
-          collateralTotal={donuts.collateralTotal}
-          borrowMix={donuts.borrowMix}
-          borrowTotal={donuts.borrowTotal}
-        />
+        <MixDonuts byPeriod={donutsByPeriod} />
       </ChartFrame>
 
       {/* SECTION 7 — TOP MARKETS */}

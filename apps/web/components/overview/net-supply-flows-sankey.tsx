@@ -53,7 +53,7 @@ export function NetSupplyFlowsSankey({ byKey }: Props) {
             iterations={64}
             link={{ stroke: 'hsla(0,0%,100%,0.10)' }}
             node={<SankeyNode />}
-            margin={{ top: 12, right: 140, bottom: 12, left: 140 }}
+            margin={{ top: 26, right: 150, bottom: 12, left: 150 }}
           >
             <Tooltip
               formatter={(v: unknown) => [fmtUsd(typeof v === 'number' ? v : 0, { compact: true }), 'Net flow']}
@@ -93,15 +93,34 @@ export function NetSupplyFlowsSankey({ byKey }: Props) {
 interface NodeProps {
   x?: number; y?: number; width?: number; height?: number;
   index?: number;
-  payload?: { name: string; kind: string };
+  payload?: { name: string; kind: string; usd?: number };
   containerWidth?: number;
 }
 function SankeyNode(props: NodeProps) {
-  const { x = 0, y = 0, width = 0, height = 0, payload, containerWidth = 0 } = props;
+  const { x = 0, y = 0, width = 0, height = 0, payload } = props;
   if (!payload) return null;
   const color = nodeColor(payload.kind);
-  // Component nodes label to the right; inflow (left side) label left,
-  // outflow (right side) label right.
+  const usd = payload.usd ?? 0;
+  const name = payload.name.length > 14 ? payload.name.slice(0, 13) + '…' : payload.name;
+  const font = tokens.typography.fontFamilyMono;
+
+  // Component (middle) nodes: name + signed net ABOVE the bar (avoids
+  // overlapping the flows). Asset nodes: name + value beside the bar —
+  // inflow to the left, outflow to the right.
+  if (payload.kind === 'component') {
+    const signed = (usd >= 0 ? '+' : '−') + fmtUsd(Math.abs(usd), { compact: true });
+    const valColor = usd >= 0 ? tokens.colors.positive : tokens.colors.negative;
+    return (
+      <Layer>
+        <Rectangle x={x} y={y} width={width} height={height} fill={color} fillOpacity={0.95} radius={1} />
+        <text x={x + width / 2} y={y - 6} textAnchor="middle" fontSize={10} fontFamily={font}>
+          <tspan fill={tokens.colors.textPrimary} fontWeight={600}>{name}</tspan>
+          <tspan fill={valColor} dx={5}>{signed}</tspan>
+        </text>
+      </Layer>
+    );
+  }
+
   const isLeft = payload.kind === 'inflow';
   const labelX = isLeft ? x - 6 : x + width + 6;
   const anchor = isLeft ? 'end' : 'start';
@@ -114,10 +133,10 @@ function SankeyNode(props: NodeProps) {
         textAnchor={anchor}
         dominantBaseline="middle"
         fontSize={10}
-        fill={tokens.colors.textSecondary}
-        fontFamily={tokens.typography.fontFamilyMono}
+        fontFamily={font}
       >
-        {payload.name.length > 16 ? payload.name.slice(0, 15) + '…' : payload.name}
+        <tspan fill={tokens.colors.textSecondary}>{name}</tspan>
+        <tspan fill={tokens.colors.textMuted} dx={5}>{fmtUsd(usd, { compact: true })}</tspan>
       </text>
     </Layer>
   );
