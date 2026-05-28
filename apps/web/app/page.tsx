@@ -95,14 +95,15 @@ export default async function OverviewPage() {
         </p>
       </header>
 
-      {/* SECTION 2 — KPI STRIP */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <KpiCardMultiDelta label="Total Deposits"        data={kpis.totalDeposits}      accent="chart-1" />
-        <KpiCardMultiDelta label="Active Borrows"        data={kpis.activeBorrows}      accent="chart-3" />
-        <KpiCardMultiDelta label="Available Liquidity"   data={kpis.availableLiquidity} accent="chart-2" />
-        <KpiCardMultiDelta label="Morpho Utilization"    data={kpis.utilization}        accent="chart-5" />
-        <KpiCardMultiDelta label="Curator-Fee Take Rate" data={kpis.curatorFeeTakeRate} accent="chart-7" />
-        <KpiCardMultiDelta label="% Real Yield Spread"   data={kpis.realYieldSpread}    accent="chart-6" />
+      {/* SECTION 2 — KPI STRIP (3-by-3, two rows; per-card colors + left
+          stripe mirror the Lending Intelligence Terminal) */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <KpiCardMultiDelta label="Total Deposits"        data={kpis.totalDeposits}      accent="positive"         icon="trending-up" />
+        <KpiCardMultiDelta label="Active Borrows"        data={kpis.activeBorrows}      accent="chart-7"          icon="trending-down" />
+        <KpiCardMultiDelta label="Available Liquidity"   data={kpis.availableLiquidity} accent="accent-secondary" icon="wallet" />
+        <KpiCardMultiDelta label="Morpho Utilization"    data={kpis.utilization}        accent="accent"           icon="activity" />
+        <KpiCardMultiDelta label="% Real Yield Spread"   data={kpis.realYieldSpread}    accent="positive"         icon="percent" />
+        <KpiCardMultiDelta label="Curator-Fee Take Rate" data={kpis.curatorFeeTakeRate} accent="accent-blue"      icon="dollar" />
       </div>
       {!kpis.tbillAvailable && (
         <p className="text-tiny uppercase tracking-header-medium text-text-muted">
