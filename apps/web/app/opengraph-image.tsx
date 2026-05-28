@@ -12,7 +12,7 @@
  *      the TVL happened to be five minutes ago.
  *
  * Matches the Lending Intelligence Terminal OG card pattern (same orange
- * #FF6B35, same dark bg, same DATUMLABS RESEARCH eyebrow) with chain chips
+ * #5B7CFF, same dark bg, same DATUMLABS RESEARCH eyebrow) with chain chips
  * replacing the protocol chips.
  */
 import { ImageResponse } from 'next/og';
@@ -45,7 +45,7 @@ export default async function OgImage() {
           height: 630,
           display: 'flex',
           flexDirection: 'column',
-          background: '#0B0D11',
+          background: '#03072D',
           color: '#F7F4ED',
           fontFamily: 'sans-serif',
           padding: '56px 72px',
@@ -58,7 +58,7 @@ export default async function OgImage() {
             position: 'absolute',
             inset: 0,
             background:
-              'linear-gradient(135deg, rgba(185, 122, 255, 0.04) 0%, rgba(255, 107, 53, 0.06) 100%)',
+              'linear-gradient(135deg, rgba(91, 124, 255, 0.06) 0%, rgba(167, 139, 250, 0.05) 100%)',
           }}
         />
 
@@ -75,7 +75,7 @@ export default async function OgImage() {
             style={{
               width: 10,
               height: 10,
-              background: '#FF6B35',
+              background: '#5B7CFF',
               borderRadius: '50%',
             }}
           />
@@ -84,7 +84,7 @@ export default async function OgImage() {
               fontSize: 16,
               letterSpacing: '0.22em',
               textTransform: 'uppercase',
-              color: '#FF6B35',
+              color: '#5B7CFF',
               fontWeight: 600,
             }}
           >
@@ -131,7 +131,7 @@ export default async function OgImage() {
               fontWeight: 800,
               lineHeight: 1.02,
               letterSpacing: '-0.025em',
-              color: '#FF6B35',
+              color: '#5B7CFF',
               display: 'flex',
             }}
           >
@@ -174,7 +174,7 @@ export default async function OgImage() {
                 alignItems: 'center',
                 gap: 10,
                 padding: '10px 18px',
-                background: 'rgba(20, 23, 29, 0.85)',
+                background: 'rgba(10, 15, 51, 0.85)',
                 border: '1px solid rgba(247, 244, 237, 0.12)',
                 borderLeft: `3px solid ${c.color}`,
                 borderRadius: 6,
@@ -219,7 +219,7 @@ export default async function OgImage() {
           }}
         >
           <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ color: '#FF6B35', fontWeight: 700 }}>&gt;</span>
+            <span style={{ color: '#5B7CFF', fontWeight: 700 }}>&gt;</span>
             <span>datumlab.xyz/morpho-terminal</span>
           </span>
           <span>Beyond Analytics · Beyond Reports · Beyond Ordinary</span>

@@ -51,12 +51,12 @@ export const ALL_LENDING_SLUGS: readonly string[] = [
 // Brand → hex. Two shades per brand so v2+v3 can share a hue but stay
 // distinguishable. Aligned with the chart palette in lib/brand/tokens.ts.
 export const BRAND_COLORS: Record<string, { primary: string; legacy: string }> = {
-  morpho:   { primary: '#FF8155', legacy: '#FFA585' }, // accent orange
-  aave:     { primary: '#B97AFF', legacy: '#D5B0FF' }, // purple
+  morpho:   { primary: '#5B7CFF', legacy: '#9AAEFF' }, // Datum brand blue — highlighted
+  aave:     { primary: '#A78BFA', legacy: '#C9B6FC' }, // purple
   spark:    { primary: '#FBBF24', legacy: '#FDD877' }, // yellow
   compound: { primary: '#34D399', legacy: '#7BE8C2' }, // green
   fluid:    { primary: '#38BDF8', legacy: '#7AD8FA' }, // cyan
-  euler:    { primary: '#6B85FF', legacy: '#9AAEFF' }, // blue
+  euler:    { primary: '#FB923C', legacy: '#FCC08A' }, // orange (distinct from brand blue)
   sky:      { primary: '#F472B6', legacy: '#FAA5D2' }, // pink
   liquity:  { primary: '#818CF8', legacy: '#ABB4FA' }, // indigo
 };

@@ -10,24 +10,24 @@
 
 export const tokens = {
   colors: {
-    // Surfaces
-    background: '#0b0d11',         // page bg — near-black with cool tint
-    surface: '#14171d',            // card / panel bg
-    surfaceHover: '#1b1f27',
-    panelHeader: '#1a1d24',
-    border: 'hsla(0, 0%, 100%, 0.08)',
-    borderBright: 'hsla(0, 0%, 100%, 0.16)',
-    hoverOverlay: 'hsla(0, 0%, 100%, 0.04)',
+    // Surfaces — Datum navy (dark-theme values; Recharts renders on these).
+    background: '#03072d',         // page bg — Datum navy
+    surface: '#0a0f33',            // card / panel bg
+    surfaceHover: '#141b47',
+    panelHeader: '#0c1138',
+    border: 'hsla(0, 0%, 100%, 0.09)',
+    borderBright: 'hsla(0, 0%, 100%, 0.18)',
+    hoverOverlay: 'hsla(0, 0%, 100%, 0.05)',
 
     // Text
-    textPrimary: '#e5e7eb',
-    textSecondary: '#c8ccd6',
-    textMuted: '#8b92a1',
+    textPrimary: '#e8eaf6',
+    textSecondary: '#c2c7e0',
+    textMuted: '#8b92b5',
 
-    // Accents (orange is the primary brand accent — same as terminal)
-    accent: '#ff8155',
-    accentSecondary: '#b97aff',
-    accentBlue: '#6b85ff',
+    // Accents — Datum blue lead.
+    accent: '#5b7cff',             // brand blue (brightened for navy bg)
+    accentSecondary: '#a78bfa',
+    accentBlue: '#5b7cff',
     accentCyan: '#38bdf8',
     accentYellow: '#fbbf24',
 
@@ -35,21 +35,21 @@ export const tokens = {
     positive: '#34d399',           // success / up
     negative: '#f26b68',           // danger / down
 
-    // Chart palette — display order from the Lending Terminal
+    // Chart palette — blue-led, multi-hue for stacked legibility.
     chart: [
-      '#6b85ff', // 1 blue
+      '#5b7cff', // 1 brand blue
       '#34d399', // 2 green
       '#fbbf24', // 3 yellow
-      '#b97aff', // 4 purple
+      '#a78bfa', // 4 purple
       '#38bdf8', // 5 cyan
-      '#ff8155', // 6 orange
+      '#fb923c', // 6 orange
       '#f472b6', // 7 pink
       '#818cf8', // 8 indigo
     ] as const,
 
     // Tooltip / overlay
-    tooltipBg: 'rgba(20, 23, 29, 0.98)',
-    tooltipShadow: 'rgba(0, 0, 0, 0.45)',
+    tooltipBg: 'rgba(10, 15, 51, 0.98)',
+    tooltipShadow: 'rgba(0, 0, 0, 0.55)',
   },
 
   typography: {

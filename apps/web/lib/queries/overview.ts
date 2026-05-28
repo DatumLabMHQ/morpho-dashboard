@@ -18,7 +18,7 @@ import {
 } from '../protocols/comparison-set.js';
 import { getDb } from '../db.js';
 
-const CACHE_VERSION = 'overview-v5';
+const CACHE_VERSION = 'overview-v6';
 const TTL = 900;
 
 // Shared asset-class CASE (mirrors the rest of the dashboard).

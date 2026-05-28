@@ -14,17 +14,22 @@ export interface ChainMeta {
 
 export const CHAIN_META: readonly ChainMeta[] = [
   { chainId: 1,        name: 'Ethereum',    llamaSlug: 'Ethereum' },
-  { chainId: 10,       name: 'Optimism',    llamaSlug: 'Optimism' },
+  // Display names aligned to Morpho's own interface labels where they differ
+  // (OP Mainnet, Worldchain, HyperEVM). llamaSlug stays the DefiLlama key.
+  { chainId: 10,       name: 'OP Mainnet',  llamaSlug: 'Optimism' },
   { chainId: 56,       name: 'BNB Chain',   llamaSlug: 'BSC' },
   { chainId: 100,      name: 'Gnosis',      llamaSlug: 'Gnosis' },
   { chainId: 130,      name: 'Unichain',    llamaSlug: 'Unichain' },
   { chainId: 137,      name: 'Polygon',     llamaSlug: 'Polygon' },
+  { chainId: 143,      name: 'Monad',       llamaSlug: 'Monad' },
   { chainId: 146,      name: 'Sonic',       llamaSlug: 'Sonic' },
   { chainId: 252,      name: 'Fraxtal',     llamaSlug: 'Fraxtal' },
-  { chainId: 480,      name: 'World Chain', llamaSlug: 'World Chain' },
+  { chainId: 480,      name: 'Worldchain',  llamaSlug: 'World Chain' },
+  { chainId: 988,      name: 'Stable',      llamaSlug: 'Stable' },
+  { chainId: 4217,     name: 'Tempo',       llamaSlug: 'Tempo' },
   { chainId: 747474,   name: 'Katana',      llamaSlug: 'Katana' },
-  { chainId: 998,      name: 'Hyperliquid', llamaSlug: 'Hyperliquid L1' },
-  { chainId: 999,      name: 'Hyperliquid', llamaSlug: 'Hyperliquid L1' },
+  { chainId: 998,      name: 'HyperEVM',    llamaSlug: 'Hyperliquid L1' },
+  { chainId: 999,      name: 'HyperEVM',    llamaSlug: 'Hyperliquid L1' },
   { chainId: 1135,     name: 'Lisk',        llamaSlug: 'Lisk' },
   { chainId: 1868,     name: 'Soneium',     llamaSlug: 'Soneium' },
   { chainId: 8453,     name: 'Base',        llamaSlug: 'Base' },
