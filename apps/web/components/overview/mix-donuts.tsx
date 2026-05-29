@@ -22,6 +22,37 @@ const PERIODS: { value: MixPeriod; label: string }[] = [
 const sliceColor = (symbol: string, i: number) =>
   symbol === 'Other' ? 'hsla(0,0%,100%,0.22)' : tokens.colors.chart[i % tokens.colors.chart.length];
 
+// On-arc data label: prints each slice's % directly on the ring (mid-band)
+// for slices big enough to fit (>= 5%). Small slices stay in the side legend
+// only, to avoid clutter. White text reads on every brand color.
+interface ArcLabelProps {
+  cx?: number; cy?: number; midAngle?: number;
+  innerRadius?: number; outerRadius?: number; percent?: number;
+}
+function renderArcLabel(p: ArcLabelProps) {
+  const { cx = 0, cy = 0, midAngle = 0, innerRadius = 0, outerRadius = 0, percent = 0 } = p;
+  if (percent < 0.05) return null;
+  const RADIAN = Math.PI / 180;
+  const r = innerRadius + (outerRadius - innerRadius) * 0.5;
+  const x = cx + r * Math.cos(-midAngle * RADIAN);
+  const y = cy + r * Math.sin(-midAngle * RADIAN);
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="#FFFFFF"
+      fontSize={9}
+      fontWeight={600}
+      textAnchor="middle"
+      dominantBaseline="central"
+      fontFamily={tokens.typography.fontFamilyMono}
+      style={{ pointerEvents: 'none' }}
+    >
+      {(percent * 100).toFixed(0)}%
+    </text>
+  );
+}
+
 /** Donut + a right-side legend listing each asset with its share %. */
 function Donut({ title, slices, total }: { title: string; slices: AssetSlice[]; total: number }) {
   return (
@@ -31,7 +62,7 @@ function Donut({ title, slices, total }: { title: string; slices: AssetSlice[]; 
       </h3>
       <div className="flex items-center gap-4">
         {/* Donut */}
-        <div className="relative shrink-0" style={{ width: 160, height: 160 }}>
+        <div className="relative shrink-0" style={{ width: 184, height: 184 }}>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
@@ -40,12 +71,14 @@ function Donut({ title, slices, total }: { title: string; slices: AssetSlice[]; 
                 nameKey="symbol"
                 cx="50%"
                 cy="50%"
-                innerRadius={48}
-                outerRadius={74}
+                innerRadius={54}
+                outerRadius={86}
                 paddingAngle={1}
                 isAnimationActive={false}
                 stroke="var(--card-bg)"
                 strokeWidth={1}
+                label={renderArcLabel}
+                labelLine={false}
               >
                 {slices.map((s, i) => (
                   <Cell key={s.symbol} fill={sliceColor(s.symbol, i)} />
