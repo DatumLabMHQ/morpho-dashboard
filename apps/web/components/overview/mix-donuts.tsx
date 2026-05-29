@@ -74,7 +74,8 @@ function Donut({ title, slices, total }: { title: string; slices: AssetSlice[]; 
           </div>
         </div>
 
-        {/* Side legend: dot · symbol · share% */}
+        {/* Side legend: dot · symbol · share%. Colors are inline (CSS-var
+            driven) so they read in both themes. */}
         <div className="min-w-0 flex-1">
           <table className="w-full text-tiny tabular-nums">
             <tbody>
@@ -85,10 +86,10 @@ function Donut({ title, slices, total }: { title: string; slices: AssetSlice[]; 
                     <td className="py-1 pr-2">
                       <span className="inline-flex items-center gap-1.5">
                         <span className="inline-block size-2 rounded-sm shrink-0" style={{ background: sliceColor(s.symbol, i) }} />
-                        <span className="uppercase tracking-header-medium text-text-secondary">{s.symbol}</span>
+                        <span className="uppercase tracking-header-medium" style={{ color: 'var(--text-primary)' }}>{s.symbol}</span>
                       </span>
                     </td>
-                    <td className="py-1 text-right text-text-primary">{share.toFixed(1)}%</td>
+                    <td className="py-1 text-right" style={{ color: 'var(--text-primary)' }}>{share.toFixed(1)}%</td>
                   </tr>
                 );
               })}

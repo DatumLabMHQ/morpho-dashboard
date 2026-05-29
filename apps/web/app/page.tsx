@@ -118,7 +118,21 @@ export default async function OverviewPage() {
         </p>
       )}
 
-      {/* SECTION 3 — MARKET SHARE (anchor) */}
+      {/* SECTION 3 — LENDING SECTOR POSITION (moved up: where Morpho sits in
+          the sector is the headline framing, so it leads above the by-chain
+          breakdown). */}
+      <ChartFrame
+        title="Morpho in the lending sector"
+        subtitle={sectorSub}
+        csvFilename="overview-sector-position.csv"
+        csvContent={['protocol,day,tvl_usd',
+          ...comparison.lending.flatMap((s) => s.points.map((p) => [s.label.replace(/,/g, ' '), p.day, p.tvl].join(',')))
+        ].join('\n')}
+      >
+        <ProtocolComparisonLine data={comparison} showCdp={false} />
+      </ChartFrame>
+
+      {/* SECTION 4 — MARKET SHARE (anchor) */}
       <ChartFrame
         title="Morpho by chain"
         subtitle="Share of Morpho's selected metric across chains over time. Top 10 chains; rest aggregated as Other."
@@ -179,18 +193,6 @@ export default async function OverviewPage() {
         ].join('\n')}
       >
         <TopMarketsTable byPeriod={marketsByPeriod} chainColorIndex={chainColorIndex} />
-      </ChartFrame>
-
-      {/* SECTION 8 — LENDING SECTOR POSITION (compact) */}
-      <ChartFrame
-        title="Morpho in the lending sector"
-        subtitle={sectorSub}
-        csvFilename="overview-sector-position.csv"
-        csvContent={['protocol,day,tvl_usd',
-          ...comparison.lending.flatMap((s) => s.points.map((p) => [s.label.replace(/,/g, ' '), p.day, p.tvl].join(',')))
-        ].join('\n')}
-      >
-        <ProtocolComparisonLine data={comparison} showCdp={false} />
       </ChartFrame>
 
       {/* SECTION 9 — METHODOLOGY + CITE */}
