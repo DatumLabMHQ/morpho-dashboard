@@ -22,34 +22,47 @@ const PERIODS: { value: MixPeriod; label: string }[] = [
 const sliceColor = (symbol: string, i: number) =>
   symbol === 'Other' ? 'hsla(0,0%,100%,0.22)' : tokens.colors.chart[i % tokens.colors.chart.length];
 
-// On-arc data label: prints each slice's % directly on the ring (mid-band)
-// for slices big enough to fit (>= 5%). Small slices stay in the side legend
-// only, to avoid clutter. White text reads on every brand color.
-interface ArcLabelProps {
-  cx?: number; cy?: number; midAngle?: number;
-  innerRadius?: number; outerRadius?: number; percent?: number;
+// High-contrast hover tooltip matching the Lending Terminal: a solid dark
+// card with a colored dot + symbol header, then USD and Share rows in light
+// text. Built custom (not Recharts' default) so the text is always legible
+// in dark mode instead of dark-on-dark.
+interface TooltipProps {
+  active?: boolean;
+  payload?: { name?: string; value?: number; payload?: { symbol: string }; color?: string }[];
+  total: number;
 }
-function renderArcLabel(p: ArcLabelProps) {
-  const { cx = 0, cy = 0, midAngle = 0, innerRadius = 0, outerRadius = 0, percent = 0 } = p;
-  if (percent < 0.05) return null;
-  const RADIAN = Math.PI / 180;
-  const r = innerRadius + (outerRadius - innerRadius) * 0.5;
-  const x = cx + r * Math.cos(-midAngle * RADIAN);
-  const y = cy + r * Math.sin(-midAngle * RADIAN);
+function DonutTooltip({ active, payload, total }: TooltipProps) {
+  if (!active || !payload || payload.length === 0) return null;
+  const p = payload[0]!;
+  const symbol = p.payload?.symbol ?? p.name ?? '';
+  const usd = typeof p.value === 'number' ? p.value : 0;
+  const share = total > 0 ? (usd / total) * 100 : 0;
   return (
-    <text
-      x={x}
-      y={y}
-      fill="#FFFFFF"
-      fontSize={9}
-      fontWeight={600}
-      textAnchor="middle"
-      dominantBaseline="central"
-      fontFamily={tokens.typography.fontFamilyMono}
-      style={{ pointerEvents: 'none' }}
+    <div
+      style={{
+        background: 'var(--card-bg)',
+        border: '1px solid var(--border-bright)',
+        borderRadius: 'var(--radius-md)',
+        boxShadow: `0 8px 24px ${tokens.colors.tooltipShadow}`,
+        padding: '8px 11px',
+        fontFamily: tokens.typography.fontFamilyMono,
+        fontSize: 11,
+        minWidth: 132,
+      }}
     >
-      {(percent * 100).toFixed(0)}%
-    </text>
+      <div className="flex items-center gap-1.5" style={{ marginBottom: 5 }}>
+        <span className="inline-block size-2 rounded-sm" style={{ background: p.color ?? 'var(--accent)' }} />
+        <span style={{ color: 'var(--text-primary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{symbol}</span>
+      </div>
+      <div className="flex items-center justify-between gap-4">
+        <span style={{ color: 'var(--text-muted)' }}>USD</span>
+        <span style={{ color: 'var(--text-primary)' }}>{fmtUsd(usd, { compact: true })}</span>
+      </div>
+      <div className="flex items-center justify-between gap-4">
+        <span style={{ color: 'var(--text-muted)' }}>Share</span>
+        <span style={{ color: 'var(--text-primary)' }}>{share.toFixed(1)}%</span>
+      </div>
+    </div>
   );
 }
 
@@ -60,9 +73,9 @@ function Donut({ title, slices, total }: { title: string; slices: AssetSlice[]; 
       <h3 className="text-tiny uppercase font-bold" style={{ letterSpacing: '0.1em', color: 'var(--accent)' }}>
         {title}
       </h3>
-      <div className="flex items-center gap-4">
-        {/* Donut */}
-        <div className="relative shrink-0" style={{ width: 184, height: 184 }}>
+      <div className="flex items-center gap-5">
+        {/* Donut — hollow center, on-hover tooltip only. */}
+        <div className="relative shrink-0" style={{ width: 168, height: 168 }}>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
@@ -71,45 +84,31 @@ function Donut({ title, slices, total }: { title: string; slices: AssetSlice[]; 
                 nameKey="symbol"
                 cx="50%"
                 cy="50%"
-                innerRadius={54}
-                outerRadius={86}
+                innerRadius={50}
+                outerRadius={82}
                 paddingAngle={1}
                 isAnimationActive={false}
                 stroke="var(--card-bg)"
                 strokeWidth={1}
-                label={renderArcLabel}
-                labelLine={false}
               >
                 {slices.map((s, i) => (
                   <Cell key={s.symbol} fill={sliceColor(s.symbol, i)} />
                 ))}
               </Pie>
-              <Tooltip
-                formatter={(v: unknown, name: unknown) => {
-                  const n = typeof v === 'number' ? v : 0;
-                  const share = total > 0 ? ((n / total) * 100).toFixed(1) : '0.0';
-                  return [`${fmtUsd(n, { compact: true })} · ${share}%`, String(name)];
-                }}
-                contentStyle={{
-                  background: tokens.colors.tooltipBg,
-                  border: `1px solid ${tokens.colors.borderBright}`,
-                  borderRadius: tokens.radii.md,
-                  fontFamily: tokens.typography.fontFamilyMono,
-                  fontSize: 11,
-                  color: tokens.colors.textPrimary,
-                }}
-              />
+              <Tooltip content={<DonutTooltip total={total} />} />
             </PieChart>
           </ResponsiveContainer>
-          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-[9px] uppercase tracking-header-medium text-text-muted">Total</span>
-            <span className="text-small tabular-nums text-text-primary">{fmtUsd(total, { compact: true })}</span>
-          </div>
         </div>
 
-        {/* Side legend: dot · symbol · share%. Colors are inline (CSS-var
-            driven) so they read in both themes. */}
+        {/* Side legend — TOTAL header, then dot · symbol · share% rows
+            (mirrors the Lending Terminal layout). */}
         <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between border-b border-card-border pb-1.5 mb-1">
+            <span className="text-tiny uppercase tracking-header-medium text-text-muted">Total</span>
+            <span className="text-body tabular-nums" style={{ color: 'var(--text-primary)' }}>
+              {fmtUsd(total, { compact: true })}
+            </span>
+          </div>
           <table className="w-full text-tiny tabular-nums">
             <tbody>
               {slices.map((s, i) => {
