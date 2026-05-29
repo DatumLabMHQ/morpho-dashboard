@@ -1,11 +1,11 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Layer, Rectangle, ResponsiveContainer, Sankey, Tooltip } from 'recharts';
+import { Layer, Rectangle, ResponsiveContainer, Sankey } from 'recharts';
 
 import { tokens } from '@/lib/brand/tokens';
 import { fmtUsd } from '@/lib/format';
-import type { NetSupplyFlows } from '@/lib/queries/overview';
+import type { NetSupplyFlows, SankeyNode as SankeyNodeData } from '@/lib/queries/overview';
 
 interface Props {
   /** Pre-fetched flows keyed by `${view}:${period}` so toggles are instant. */
@@ -16,7 +16,11 @@ type View = 'chain' | 'curator';
 type Period = 'W' | 'M' | 'Q';
 
 interface NodeHoverInfo { name: string; kind: string; usd: number }
+interface LinkHoverInfo { from: string; to: string; usd: number; color: string }
 interface Tip { left: number; top: number; title: string; value: string; valColor: string }
+
+const INFLOW_COLOR = '#34D399';   // green
+const OUTFLOW_COLOR = '#F26B68';  // red
 
 const nodeColor = (kind: string): string => {
   if (kind === 'inflow') return tokens.colors.chart[1];      // green
@@ -33,14 +37,23 @@ export function NetSupplyFlowsSankey({ byKey }: Props) {
 
   const hasData = flows && flows.nodes.length > 0 && flows.links.length > 0;
 
-  // Self-managed node tooltip: Recharts' Sankey tooltip only fires for the
-  // default node shape, and our custom node replaces it — so we wire hover
-  // ourselves. Links still use the Recharts <Tooltip> below.
+  // Self-managed tooltip: Recharts' built-in Sankey tooltip doesn't fire once
+  // we supply custom node + link renderers, so we wire hover ourselves for
+  // BOTH the nodes (bars) and the links (ribbons — what users actually point
+  // at). Positions are computed relative to the wrapper.
+  const showTip = (title: string, value: string, valColor: string, e: React.MouseEvent) => {
+    const rect = wrapRef.current?.getBoundingClientRect();
+    setTip({
+      left: e.clientX - (rect?.left ?? 0),
+      top: e.clientY - (rect?.top ?? 0),
+      title,
+      value,
+      valColor,
+    });
+  };
+
   const onNodeHover = (info: NodeHoverInfo | null, e?: React.MouseEvent) => {
     if (!info || !e) { setTip(null); return; }
-    const rect = wrapRef.current?.getBoundingClientRect();
-    const left = e.clientX - (rect?.left ?? 0);
-    const top = e.clientY - (rect?.top ?? 0);
     const signed =
       info.kind === 'component'
         ? (info.usd >= 0 ? '+' : '−') + fmtUsd(Math.abs(info.usd), { compact: true })
@@ -49,7 +62,12 @@ export function NetSupplyFlowsSankey({ byKey }: Props) {
       info.kind === 'component'
         ? info.usd >= 0 ? tokens.colors.positive : tokens.colors.negative
         : info.kind === 'inflow' ? tokens.colors.positive : tokens.colors.negative;
-    setTip({ left, top, title: info.name, value: signed, valColor });
+    showTip(info.name, signed, valColor, e);
+  };
+
+  const onLinkHover = (info: LinkHoverInfo | null, e?: React.MouseEvent) => {
+    if (!info || !e) { setTip(null); return; }
+    showTip(`${info.from} → ${info.to}`, fmtUsd(info.usd, { compact: true }), info.color, e);
   };
 
   return (
@@ -67,6 +85,18 @@ export function NetSupplyFlowsSankey({ byKey }: Props) {
         />
       </div>
 
+      {/* Inflow / outflow legend (matches the reference) */}
+      <div className="flex items-center justify-between text-tiny uppercase tracking-header-medium">
+        <span className="inline-flex items-center gap-1.5" style={{ color: INFLOW_COLOR }}>
+          <span className="inline-block size-2 rounded-sm" style={{ background: INFLOW_COLOR }} />
+          Inflows →
+        </span>
+        <span className="inline-flex items-center gap-1.5" style={{ color: OUTFLOW_COLOR }}>
+          → Outflows
+          <span className="inline-block size-2 rounded-sm" style={{ background: OUTFLOW_COLOR }} />
+        </span>
+      </div>
+
       {hasData ? (
         <div ref={wrapRef} className="relative">
           <ResponsiveContainer width="100%" height={420}>
@@ -76,21 +106,19 @@ export function NetSupplyFlowsSankey({ byKey }: Props) {
               nodeWidth={12}
               linkCurvature={0.5}
               iterations={64}
-              link={{ stroke: 'hsla(0,0%,100%,0.10)' }}
+              link={<SankeyLink onHover={onLinkHover} nodes={flows.nodes} />}
               node={<SankeyNode onHover={onNodeHover} />}
               margin={{ top: 26, right: 150, bottom: 12, left: 150 }}
             >
-              <Tooltip
-                formatter={(v: unknown) => [fmtUsd(typeof v === 'number' ? v : 0, { compact: true }), 'Flow']}
-                contentStyle={{
-                  background: tokens.colors.tooltipBg,
-                  border: `1px solid ${tokens.colors.borderBright}`,
-                  borderRadius: tokens.radii.md,
-                  fontFamily: tokens.typography.fontFamilyMono,
-                  fontSize: 11,
-                  color: tokens.colors.textPrimary,
-                }}
-              />
+              <defs>
+                <filter id="sankeyGlow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="2.2" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
             </Sankey>
           </ResponsiveContainer>
           {tip && (
@@ -132,6 +160,60 @@ export function NetSupplyFlowsSankey({ byKey }: Props) {
         </span>
       </div>
     </div>
+  );
+}
+
+// Custom link (ribbon) renderer: colored by side (green inflow, red outflow),
+// semi-opaque with a soft glow, and hoverable — the ribbons are the big
+// target users actually point at, so this is where the tooltip must fire.
+interface LinkProps {
+  sourceX?: number; targetX?: number; sourceY?: number; targetY?: number;
+  sourceControlX?: number; targetControlX?: number;
+  linkWidth?: number; index?: number;
+  payload?: { source: number | SankeyNodeData; target: number | SankeyNodeData; value: number };
+  nodes?: SankeyNodeData[];
+  onHover?: (info: LinkHoverInfo | null, e?: React.MouseEvent) => void;
+}
+function SankeyLink(props: LinkProps) {
+  const {
+    sourceX = 0, targetX = 0, sourceY = 0, targetY = 0,
+    sourceControlX = 0, targetControlX = 0, linkWidth = 0,
+    payload, nodes = [], onHover,
+  } = props;
+  if (!payload) return null;
+
+  // Recharts may hand back source/target as indices or as node objects —
+  // resolve to the node either way.
+  const resolve = (v: number | SankeyNodeData | undefined): SankeyNodeData | undefined =>
+    typeof v === 'number' ? nodes[v] : v;
+  const src = resolve(payload.source);
+  const tgt = resolve(payload.target);
+
+  const color =
+    src?.kind === 'inflow' ? INFLOW_COLOR
+    : tgt?.kind === 'outflow' ? OUTFLOW_COLOR
+    : tokens.colors.accent;
+
+  const d =
+    `M${sourceX},${sourceY}` +
+    `C${sourceControlX},${sourceY} ${targetControlX},${targetY} ${targetX},${targetY}`;
+
+  const info: LinkHoverInfo = {
+    from: src?.name ?? '', to: tgt?.name ?? '', usd: payload.value ?? 0, color,
+  };
+
+  return (
+    <path
+      d={d}
+      fill="none"
+      stroke={color}
+      strokeWidth={Math.max(1, linkWidth)}
+      strokeOpacity={0.4}
+      filter="url(#sankeyGlow)"
+      style={{ cursor: 'pointer' }}
+      onMouseMove={(e) => { e.currentTarget.setAttribute('stroke-opacity', '0.75'); onHover?.(info, e); }}
+      onMouseLeave={(e) => { e.currentTarget.setAttribute('stroke-opacity', '0.4'); onHover?.(null); }}
+    />
   );
 }
 

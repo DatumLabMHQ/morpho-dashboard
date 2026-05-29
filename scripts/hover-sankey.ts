@@ -1,5 +1,4 @@
-// Deterministically confirm the Sankey node tooltip fires: hover a node's
-// transparent hit-rect and assert the tooltip div appears with text.
+// Confirm the Sankey link (ribbon) tooltip fires + capture the glow.
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
@@ -18,25 +17,22 @@ async function main() {
   await card.scrollIntoViewIfNeeded();
   await page.waitForTimeout(600);
 
-  // The widened transparent hit-rects we added carry cursor:pointer.
-  const hitRects = card.locator('svg rect[fill="transparent"]');
-  const n = await hitRects.count();
-  console.log(`hit-rects found: ${n}`);
-  if (n === 0) { console.log('FAIL: no hit rects'); await b.close(); return; }
+  // Link ribbons are the thick stroked <path> elements with cursor:pointer.
+  const links = card.locator('svg path[stroke-width]');
+  const ln = await links.count();
+  // Hover a beefy ribbon near the middle of the list.
+  let linkTip: string | null = null;
+  for (const idx of [Math.floor(ln / 2), 3, 10, 0]) {
+    if (idx >= ln) continue;
+    await links.nth(idx).hover({ force: true });
+    await page.waitForTimeout(300);
+    linkTip = await card.locator('div.absolute.z-20').first().textContent().catch(() => null);
+    if (linkTip && linkTip.includes('→')) break;
+  }
+  console.log(`link paths: ${ln} · link tooltip: ${linkTip ?? '(none)'}`);
 
-  // Hover a middle-ish node (components sit between assets).
-  await hitRects.nth(Math.floor(n / 2)).hover({ force: true });
-  await page.waitForTimeout(400);
-
-  // Tooltip is an absolutely-positioned div with a $ value. Look for it.
-  const tipText = await card
-    .locator('div.absolute.z-20')
-    .first()
-    .textContent()
-    .catch(() => null);
-  console.log(`tooltip text: ${tipText ?? '(none)'}`);
-  await card.screenshot({ path: join(BRAND, 'verify-sankey-hover.png') });
-  console.log('→ branding/verify-sankey-hover.png');
+  await card.screenshot({ path: join(BRAND, 'verify-sankey-glow.png') });
+  console.log('→ branding/verify-sankey-glow.png');
   await b.close();
 }
 main().catch((e) => { console.error(e); process.exit(1); });
