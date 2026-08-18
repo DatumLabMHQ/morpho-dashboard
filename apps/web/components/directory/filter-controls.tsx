@@ -73,6 +73,9 @@ export function FilterControls({ specs }: Props) {
 
   return (
     <div className="rounded-lg border border-border bg-surface p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <span className="text-tiny uppercase tracking-header-wide text-accent">Filters</span>
+      </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {specs.map((s) => (
           <div key={s.key}>
@@ -81,7 +84,7 @@ export function FilterControls({ specs }: Props) {
             </label>
             <div className="mt-1.5">
               {s.type === 'multi' && (
-                <div className="flex flex-wrap gap-1">
+                <div className={`flex flex-wrap gap-1 ${(s.options ?? []).length > 12 ? 'max-h-28 overflow-y-auto pr-1' : ''}`}>
                   {(s.options ?? []).map((opt) => {
                     const cur = state[s.key]?.split(',').filter(Boolean) ?? [];
                     const sel = cur.includes(opt.value);
@@ -197,7 +200,7 @@ function RangeInputs({ value, onChange, onSubmit, min, max, suffix }: RangeProps
         placeholder="min"
         className="w-full rounded-md border border-border bg-background px-2 py-1 text-small text-text-primary placeholder:text-text-muted/60"
       />
-      <span className="text-text-muted">–</span>
+      <span className="text-tiny lowercase text-text-muted">to</span>
       <input
         type="number"
         value={hi ?? ''}

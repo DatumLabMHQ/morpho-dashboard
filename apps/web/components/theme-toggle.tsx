@@ -1,5 +1,5 @@
 /**
- * Theme toggle — sun ⇄ moon button rendered in the nav.
+ * Theme toggle. Sun ⇄ moon button rendered in the nav.
  *
  * Ported from the Lending Intelligence Terminal. Flips the active theme
  * via the ThemeProvider hook and persists the choice via the provider.

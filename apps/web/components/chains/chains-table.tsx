@@ -70,7 +70,7 @@ export function ChainsTable({ rows }: Props) {
             </td>
             <td className="py-2.5 text-right tabular-nums">
               {r.deltaPp == null ? (
-                <span className="text-text-muted">—</span>
+                <span className="text-text-muted">N/A</span>
               ) : (
                 <span className={r.deltaPp >= 0 ? 'text-positive' : 'text-negative'}>
                   {r.deltaPp >= 0 ? '+' : ''}{r.deltaPp.toFixed(1)}

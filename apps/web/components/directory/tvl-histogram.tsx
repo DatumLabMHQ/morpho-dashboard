@@ -17,7 +17,7 @@ import type { TvlHistogramBucket } from '@/lib/queries/vaults';
 
 interface Props { data: TvlHistogramBucket[] }
 
-// Log-scaled TVL distribution. Reveals the long tail — most vaults under $25M
+// Log-scaled TVL distribution. Reveals the long tail. Most vaults under $25M
 // while a handful sit in the $1B+ band.
 export function TvlHistogram({ data }: Props) {
   if (data.length === 0) {
@@ -68,7 +68,7 @@ export function TvlHistogram({ data }: Props) {
         />
         <Bar dataKey="vaultCount" radius={[2, 2, 0, 0]}>
           {data.map((_, i) => (
-            <Cell key={i} fill={i === maxIdx ? tokens.colors.accent : 'hsla(255, 80%, 65%, 0.35)'} />
+            <Cell key={i} fill={i === maxIdx ? tokens.colors.accent : 'rgba(255, 129, 85, 0.35)'} />
           ))}
         </Bar>
       </BarChart>

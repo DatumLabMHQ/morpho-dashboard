@@ -11,7 +11,7 @@ import { unixToDate } from '../lib/convert.js';
 // can't import from the web app (no shared deps), but every slug used in
 // the Overview's sector chart needs a row in `protocol_tvl_daily` from this
 // sync. If a slug here returns 500 from /protocol/<slug> it lands in the
-// skipped[] result and gets dropped silently — check the sync_runs log.
+// skipped[] result and gets dropped silently; check the sync_runs log.
 export const COMPARATOR_SLUGS = [
   // Overcollateralized lending
   'morpho-blue',
@@ -22,6 +22,7 @@ export const COMPARATOR_SLUGS = [
   'compound-v2',
   'fluid-lending',
   'euler-v2',
+  'moonwell-lending',
   // CDPs
   'sky-lending',
   'liquity-v1',
@@ -63,6 +64,20 @@ export async function syncDefillamaTvl(
     try {
       const detail = await llama.protocol(slug);
 
+      // First pass: borrowed (active loans) per real chain per day. DefiLlama
+      // keys these as "{Chain}-borrowed"; net tvl = supplied − borrowed, so
+      // deposits = tvl + borrowed and active loans = borrowed.
+      const borrowedByChainDate = new Map<string, number>();
+      for (const [chainKey, data] of Object.entries(detail.chainTvls ?? {})) {
+        const m = /^(.*)-borrowed$/.exec(chainKey);
+        if (!m || !isRealChainKey(m[1]!) || !data?.tvl?.length) continue;
+        const realChain = m[1]!;
+        for (const point of data.tvl) {
+          if (point.date * 1000 < cutoffMs) continue;
+          borrowedByChainDate.set(`${realChain}|${unixToDate(point.date)}`, point.totalLiquidityUSD);
+        }
+      }
+
       let currentTotalTvl = 0;
       for (const [chainKey, data] of Object.entries(detail.chainTvls ?? {})) {
         if (!isRealChainKey(chainKey)) continue;
@@ -73,6 +88,7 @@ export async function syncDefillamaTvl(
           const date = unixToDate(point.date);
           tvlByKey.set(`${slug}|${chainKey}|${date}`, [
             slug, chainKey, date, point.totalLiquidityUSD,
+            borrowedByChainDate.get(`${chainKey}|${date}`) ?? null,
           ]);
         }
         const last = data.tvl[data.tvl.length - 1];
@@ -96,12 +112,13 @@ export async function syncDefillamaTvl(
   const written = await batchInsert(
     sql,
     'morpho_.protocol_tvl_daily',
-    ['protocol_slug', 'chain_slug', 'snapshot_date', 'tvl_usd'],
+    ['protocol_slug', 'chain_slug', 'snapshot_date', 'tvl_usd', 'borrowed_usd'],
     tvlRows,
     {
       onConflict: `ON CONFLICT (protocol_slug, chain_slug, snapshot_date) DO UPDATE SET
-        tvl_usd     = EXCLUDED.tvl_usd,
-        recorded_at = NOW()`,
+        tvl_usd      = EXCLUDED.tvl_usd,
+        borrowed_usd = EXCLUDED.borrowed_usd,
+        recorded_at  = NOW()`,
     },
   );
 

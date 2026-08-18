@@ -27,8 +27,8 @@
   --border-bright: rgba(15, 17, 21, 0.16);
   --text-muted: #5B6373;
 
-  /* Brand accents (SDK — darkened where contrast needs it on light bg) */
-  --accent-orange: #FF6B35;
+  /* Brand accents (SDK. Darkened where contrast needs it on light bg) */
+  --accent-orange: #FF6B35;          /* primary brand accent */
   --accent-red: #D6322E;
   --accent-blue: #3B5FE0;
   --accent-green: #0F9D58;
@@ -36,7 +36,7 @@
   --accent-cyan: #0090B2;
   --accent-yellow: #D97706;
 
-  /* Chart palette */
+  /* Chart palette (SDK light, darkened for contrast on light surfaces) */
   --chart-1: #3B5FE0;
   --chart-2: #0F9D58;
   --chart-3: #D97706;
@@ -62,7 +62,7 @@
   --hover-overlay: rgba(15, 17, 21, 0.03);
   --shadow-card: rgba(15, 17, 21, 0.10) 0px 8px 24px 0px;
 
-  /* Pre-existing dashboard tokens that the old codebase referenced — kept
+  /* Pre-existing dashboard tokens that the old codebase referenced. Kept
    * as aliases over the SDK names so existing components keep working. */
   --surface: var(--card);
   --surface-hover: var(--card-hover);
@@ -82,6 +82,9 @@
  * with `:root[data-theme="light"]` and win on source-order, blocking the
  * light theme entirely. */
 :root[data-theme="dark"] {
+  /* Datum Labs dark palette, exact match to the Lending Intelligence Terminal
+   * (app/globals.css [data-theme="dark"]). Near-black surfaces, ORANGE primary
+   * accent (#FF8155), JetBrains Mono type. */
   --background: #0B0D11;
   --foreground: #E5E7EB;
   --card: #14171D;
@@ -91,7 +94,7 @@
   --border-bright: rgba(255, 255, 255, 0.16);
   --text-muted: #8B92A1;
 
-  --accent-orange: #FF8155;
+  --accent-orange: #FF8155;          /* primary brand accent */
   --accent-red: #F26B68;
   --accent-blue: #6B85FF;
   --accent-green: #34D399;
@@ -121,7 +124,7 @@
   --tooltip-bg: rgba(20, 23, 29, 0.98);
   --tooltip-shadow: rgba(0, 0, 0, 0.45);
   --hover-overlay: rgba(255, 255, 255, 0.04);
-  --shadow-card: rgba(15, 17, 21, 0.18) 0px 12px 32px 0px;
+  --shadow-card: rgba(0, 0, 0, 0.35) 0px 12px 32px 0px;
 
   --surface: var(--card);
   --surface-hover: var(--card-hover);
@@ -138,8 +141,17 @@
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
-  --font-sans: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* JetBrains Mono everywhere: the Lending Intelligence Terminal's terminal
+   * face. Both --font-sans and --font-mono resolve to it so prose, labels and
+   * numeric cells all render in the same monospace family. */
+  --font-sans: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Numeric / tabular cells share the same JetBrains Mono family as the rest of
+ * the UI; this rule simply keeps the mapping explicit for tabular figures. */
+.tabular-nums {
+  font-family: var(--font-mono);
 }
 
 /* Selection respects the brand accent */
@@ -148,7 +160,7 @@
   color: var(--text-primary);
 }
 
-/* Scrollbars — match the active surface */
+/* Scrollbars. Match the active surface */
 * {
   scrollbar-color: var(--border-bright) transparent;
 }
@@ -160,11 +172,11 @@ body {
   background: var(--background);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-feature-settings: "ss01", "ss02", "tnum"; /* mono ligatures + tabular nums */
+  font-feature-settings: "tnum"; /* tabular numerals */
   transition: background-color 0.18s ease, color 0.18s ease;
 }
 
-/* Recharts theming — muted axes, subtle grid, light tick text. */
+/* Recharts theming. Muted axes, subtle grid, light tick text. */
 .recharts-cartesian-grid line {
   stroke: var(--border);
 }
@@ -187,7 +199,7 @@ body {
   color: var(--text-primary);
 }
 
-/* ─── Reusable ALL-CAPS small-cap header — terminal signature. ─── */
+/* ─── Reusable ALL-CAPS small-cap header. Terminal signature. ─── */
 .terminal-header {
   text-transform: uppercase;
   letter-spacing: 0.15em;

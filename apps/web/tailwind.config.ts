@@ -63,8 +63,8 @@ const config: Config = {
         'chart-8': 'var(--chart-8)',
       },
       fontFamily: {
-        sans: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
-        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        sans: ['var(--font-jetbrains)', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        mono: ['var(--font-jetbrains)', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       borderRadius: {
         sm: '4px',
@@ -81,10 +81,13 @@ const config: Config = {
         'header-medium': '0.10em',
       },
       fontSize: {
-        tiny: ['10px', '15px'],
-        small: ['11px', '16px'],
-        body: ['13px', '19.5px'],
-        kpi: ['24px', '32px'],
+        // Slight bump from the original dense terminal scale toward the
+        // lending terminal's airier sizing. Looser line-heights, +1-2px . 
+        // while still fitting the wide directory tables + KPI strips.
+        tiny: ['11px', '16px'],
+        small: ['12px', '17px'],
+        body: ['14px', '21px'],
+        kpi: ['26px', '34px'],
       },
     },
   },

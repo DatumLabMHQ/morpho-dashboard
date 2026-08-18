@@ -1,12 +1,12 @@
 'use client';
 
 /**
- * ChartActions — three controls on every chart card's header:
+ * ChartActions. Three controls on every chart card's header:
  *
  *  - Download PNG (uses html-to-image; honors `[data-chart-export-hide]`)
- *  - Copy link with current URL search state — link is shareable and
+ *  - Copy link with current URL search state. Link is shareable and
  *    reproduces the same chart settings (range, asset filter, etc).
- *  - Expand — toggles a `chart-expanded` class on the card promoting it
+ *  - Expand. Toggles a `chart-expanded` class on the card promoting it
  *    to a near-fullscreen overlay (CSS lives in globals.css). Recharts
  *    reflows automatically inside the larger box. Esc / backdrop click
  *    dismisses.

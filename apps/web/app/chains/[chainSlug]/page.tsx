@@ -8,7 +8,9 @@ import {
   getChainAssetMix,
   getChainCuratorPresence,
   getChainHeader,
+  getChainInterestFlowAttribution,
   getChainKpis,
+  getChainRatesComparison,
   getChainTopMarkets,
   getChainTopVaults,
   getChainTvlAndShareSeries,
@@ -37,7 +39,7 @@ export default async function ChainDetailPage({ params }: Props) {
   const header = await getChainHeader(slug);
   if (!header) notFound();
 
-  const [kpis, series, competitors, markets, vaults, curators, assetMix] = await Promise.all([
+  const [kpis, series, competitors, markets, vaults, curators, assetMix, interestFlow, rates] = await Promise.all([
     getChainKpis(header.chainSlug),
     getChainTvlAndShareSeries(header.chainSlug),
     getTopProtocolsOnChain(header.chainSlug, 5),
@@ -45,6 +47,8 @@ export default async function ChainDetailPage({ params }: Props) {
     getChainTopVaults(header.chainSlug, 10),
     getChainCuratorPresence(header.chainSlug),
     getChainAssetMix(header.chainSlug),
+    getChainInterestFlowAttribution(header.chainSlug),
+    getChainRatesComparison(header.chainSlug),
   ]);
 
   if (!kpis) notFound();
@@ -63,6 +67,8 @@ export default async function ChainDetailPage({ params }: Props) {
         vaults={vaults}
         curators={curators}
         assetMix={assetMix}
+        interestFlow={interestFlow}
+        rates={rates}
       />
     </div>
   );

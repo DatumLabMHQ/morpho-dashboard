@@ -71,7 +71,7 @@ export function TopVaultsBar({ data }: Props) {
         />
         <Bar dataKey="tvlUsd" radius={[0, 2, 2, 0]}>
           {formatted.map((_, i) => (
-            <Cell key={i} fill={i === 0 ? tokens.colors.accent : 'hsla(255, 80%, 65%, 0.35)'} />
+            <Cell key={i} fill={i === 0 ? tokens.colors.accent : 'rgba(255, 129, 85, 0.35)'} />
           ))}
         </Bar>
       </BarChart>

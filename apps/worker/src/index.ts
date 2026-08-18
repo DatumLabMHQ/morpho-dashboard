@@ -4,6 +4,7 @@ import { createClient, type SqlClient } from '@morpho-dashboard/db';
 import { finishSyncRun, startSyncRun, type SyncRunId, type SyncTrigger } from './db/sync-runs.js';
 import type { Env } from './env.js';
 import { syncAaveRates } from './jobs/aave-rates.js';
+import { syncCompetitorRates } from './jobs/competitor-rates.js';
 import { aggregateAssetFlowsWeekly } from './jobs/aggregate-asset-flows-weekly.js';
 import { aggregateOverviewWeekly } from './jobs/aggregate-overview-weekly.js';
 import { syncFredTbill } from './jobs/fred-tbill.js';
@@ -14,6 +15,7 @@ import { syncCurators } from './jobs/curators.js';
 import { syncDefillamaFees } from './jobs/defillama-fees.js';
 import { syncDefillamaLendingDenom } from './jobs/defillama-lending-denom.js';
 import { syncDefillamaTvl } from './jobs/defillama-tvl.js';
+import { downsampleHistory } from './jobs/downsample-history.js';
 import { syncMarkets } from './jobs/markets.js';
 import { triageUncategorizedAssets } from './jobs/triage-uncategorized-assets.js';
 import { syncVaultAllocations } from './jobs/vault-allocations.js';
@@ -45,9 +47,11 @@ const JOBS: Record<string, JobHandler> = {
   'defillama-fees':             ({ sql, llama })  => syncDefillamaFees(sql, llama),
   'defillama-lending-denom':    ({ sql, llama })  => syncDefillamaLendingDenom(sql, llama),
   'aave-rates':                 ({ sql, llama })  => syncAaveRates(sql, llama),
+  'competitor-rates':           ({ sql, llama })  => syncCompetitorRates(sql, llama),
   'aggregate-overview-weekly':  ({ sql })         => aggregateOverviewWeekly(sql),
   'aggregate-asset-flows-weekly': ({ sql })       => aggregateAssetFlowsWeekly(sql),
   'fred-tbill':                 ({ sql, fredApiKey }) => syncFredTbill(sql, fredApiKey),
+  'downsample-history':         ({ sql })         => downsampleHistory(sql),
   // Backfill / perpetual (cursor- or SQL-driven; expose hasMore)
   'backfill-market-history':    ({ sql, morpho }) => backfillMarketHistory(sql, morpho),
   'backfill-vault-history':     ({ sql, morpho }) => backfillVaultHistory(sql, morpho),
@@ -61,8 +65,8 @@ const CRON_DISPATCH: Record<string, readonly string[]> = {
   '0 */6 * * *':  ['chains', 'curators', 'markets', 'vaults'],
   '10 */6 * * *': ['defillama-tvl', 'defillama-fees'],
   '20 */6 * * *': ['defillama-lending-denom'],
-  '30 */6 * * *': ['aave-rates'],
-  '40 4 * * *':   ['aggregate-overview-weekly', 'aggregate-asset-flows-weekly', 'fred-tbill'], // daily 04:40 UTC
+  '30 */6 * * *': ['competitor-rates'],
+  '40 4 * * *':   ['aggregate-overview-weekly', 'aggregate-asset-flows-weekly', 'fred-tbill', 'downsample-history'], // daily 04:40 UTC
 };
 
 // Names of jobs callable via /backfill/tick (cursor-driven or perpetual).

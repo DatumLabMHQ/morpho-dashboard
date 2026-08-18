@@ -38,7 +38,7 @@ export function TvlChart({ data }: { data: TvlChartPoint[] }) {
   if (data.length === 0) {
     return (
       <div className="flex h-[300px] items-center justify-center text-sm text-neutral-500">
-        No TVL series yet — run the sync, then reload.
+        No TVL series yet. Run the sync, then reload.
       </div>
     );
   }
@@ -62,7 +62,7 @@ export function TvlChart({ data }: { data: TvlChartPoint[] }) {
           labelFormatter={(v: string) => format(parseISO(v), 'PP')}
           formatter={(v: unknown, name: unknown) => {
             const n = typeof v === 'number' && Number.isFinite(v) ? v : null;
-            return [n == null ? '—' : fmtFullUsd(n), String(name)];
+            return [n == null ? 'N/A' : fmtFullUsd(n), String(name)];
           }}
           contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e5e5e5' }}
         />
@@ -73,7 +73,7 @@ export function TvlChart({ data }: { data: TvlChartPoint[] }) {
           stroke="#4f46e5"
           strokeWidth={2}
           dot={false}
-          name="Morpho Blue"
+          name="Morpho"
           connectNulls
         />
         <Line

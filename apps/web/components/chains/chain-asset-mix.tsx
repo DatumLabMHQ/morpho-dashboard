@@ -107,7 +107,7 @@ export function ChainAssetMix({ data }: Props) {
               {' make up '}
               <span className="text-text-primary">{(stablePct * 100).toFixed(1)}%</span>
               {' of Morpho supply on this chain. Top stable: '}
-              <span className="text-text-primary">{stable.topSymbol ?? '—'}</span>
+              <span className="text-text-primary">{stable.topSymbol ?? 'N/A'}</span>
               {stable.topSymbol ? ` (${fmtUsd(stable.topSymbolUsd)})` : ''}
               .
             </>

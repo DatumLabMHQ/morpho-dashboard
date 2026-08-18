@@ -1,4 +1,4 @@
-// Overview-surface queries — Morpho-as-sector framing.
+// Overview-surface queries. Morpho-as-sector framing.
 //
 // Morpho is the unit of analysis; chains are its primary components and
 // curators secondary. The Overview shows Morpho's "sector" the way a
@@ -6,10 +6,16 @@
 // chart, per-component cards, a flows Sankey, mix donuts, a top-markets
 // table, and a small sector-position chart for context.
 //
-// No auto-generated narrative anywhere — numbers and structure tell it.
+// No auto-generated narrative anywhere. Numbers and structure tell it.
 
 import { unstable_cache } from 'next/cache';
 
+import {
+  type AssetClass,
+  ASSET_CLASS_LABEL,
+  ASSET_CLASS_ORDER,
+  categorizeAsset,
+} from '../assets/asset-class.js';
 import {
   ALL_LENDING_SLUGS,
   LENDING_PROTOCOLS,
@@ -18,7 +24,7 @@ import {
 } from '../protocols/comparison-set.js';
 import { getDb } from '../db.js';
 
-const CACHE_VERSION = 'overview-v7';
+const CACHE_VERSION = 'overview-v8';
 const TTL = 900;
 
 // Shared asset-class CASE (mirrors the rest of the dashboard).
@@ -45,15 +51,17 @@ const ASSET_CASE = (col: string) => `
 // Types
 // ───────────────────────────────────────────────────────────────────────
 
-export type DeltaKind = 'usd' | 'pp' | 'pct';
+export type DeltaKind = 'usd' | 'pp' | 'pct' | 'bps' | 'count';
 export interface Delta { label: string; kind: DeltaKind; value: number | null }
 export interface SparkPoint { day: string; value: number }
 
 export interface KpiCardData {
-  /** Main value. For utilization / take-rate / spread this is a ratio or pp. */
+  /** Main value. For utilization / take-rate / spread this is a ratio or pp.
+   *  For 'bps' display this is a fraction (0.0078 → "78 bps").
+   *  For 'count' display this is a plain integer. */
   value: number | null;
   /** How the card formats the main value. */
-  display: 'usd' | 'pct';
+  display: 'usd' | 'pct' | 'bps' | 'count';
   caption: string;
   deltas: Delta[];
   sparkline: SparkPoint[];
@@ -65,7 +73,10 @@ export interface MorphoWideKpis {
   curatorCount: number;
   marketCount: number;
   totalDeposits: KpiCardData;
-  activeBorrows: KpiCardData;
+  activeBorrows: KpiCardData;          // a.k.a. Active Loans (Σ borrow_assets_usd)
+  borrowInterest: KpiCardData;        // Borrow Interest (Annualized), $
+  nim: KpiCardData;                   // Net Interest Margin, bps
+  curatorFees: KpiCardData;           // Curator Fees (Annualized), $
   availableLiquidity: KpiCardData;
   utilization: KpiCardData;
   curatorFeeTakeRate: KpiCardData;
@@ -142,10 +153,16 @@ export interface TopMarketRow {
   borrowApy: number | null;
 }
 
-// Reused from the v2 spec — protocol comparison + ranking.
+// Reused from the v2 spec. Protocol comparison + ranking.
+// Each point carries all three sector metrics so the chart toggle is instant:
+//   tvl      = DefiLlama net TVL (supplied − borrowed)
+//   borrows  = active loans = DefiLlama borrowed
+//   deposits = supplied = tvl + borrowed
+export type SectorMetric = 'deposits' | 'borrows' | 'tvl';
+export interface ProtocolPoint { day: string; tvl: number; deposits: number; borrows: number }
 export interface ProtocolSeries {
   key: string; label: string; brand: string; legacy: boolean;
-  points: { day: string; tvl: number }[];
+  points: ProtocolPoint[];
 }
 export interface ProtocolComparisonResult {
   lending: ProtocolSeries[]; cdp: ProtocolSeries[]; collapsedLegacy: boolean;
@@ -231,6 +248,9 @@ export const getMorphoWideKpis = unstable_cache(
           SUM(COALESCE(s.supply_assets_usd, 0))::float8     AS supply,
           SUM(COALESCE(s.collateral_assets_usd, 0))::float8 AS collateral,
           SUM(COALESCE(s.borrow_assets_usd, 0))::float8     AS borrow,
+          -- annualized interest flows (LEAST backstop; markets with apy>1.0 already excluded by WHERE)
+          SUM(COALESCE(s.borrow_assets_usd, 0) * LEAST(COALESCE(s.borrow_apy, 0), 1.0))::float8 AS borrow_interest,
+          SUM(COALESCE(s.supply_assets_usd, 0) * LEAST(COALESCE(s.supply_apy, 0), 1.0))::float8 AS supply_interest,
           SUM(CASE WHEN UPPER(m.loan_asset_symbol) IN ('USDC','USDT','DAI')
                    THEN COALESCE(s.supply_apy, 0) * COALESCE(s.supply_assets_usd, 0) END)::float8 AS stable_apy_num,
           SUM(CASE WHEN UPPER(m.loan_asset_symbol) IN ('USDC','USDT','DAI')
@@ -239,11 +259,12 @@ export const getMorphoWideKpis = unstable_cache(
         JOIN morpho_.markets m ON m.unique_key = s.market_unique_key
         WHERE s.snapshot_date >= CURRENT_DATE - INTERVAL '400 days'
           AND (s.supply_apy IS NULL OR s.supply_apy < 1.0)
+          AND (s.borrow_apy IS NULL OR s.borrow_apy < 1.0)
         GROUP BY s.snapshot_date::date
       )
-      SELECT day::text, supply, collateral, borrow, stable_apy_num, stable_supply
+      SELECT day::text, supply, collateral, borrow, borrow_interest, supply_interest, stable_apy_num, stable_supply
       FROM daily ORDER BY day
-    `) as { day: string; supply: number; collateral: number; borrow: number; stable_apy_num: number | null; stable_supply: number | null }[];
+    `) as { day: string; supply: number; collateral: number; borrow: number; borrow_interest: number; supply_interest: number; stable_apy_num: number | null; stable_supply: number | null }[];
 
     const vault = (await sql`
       WITH dv AS (
@@ -279,6 +300,9 @@ export const getMorphoWideKpis = unstable_cache(
     type Row = {
       day: string;
       deposits: number; borrows: number; liquidity: number;
+      borrowInterest: number;       // $ annualized
+      curatorFees: number;          // $ annualized
+      nim: number | null;           // borrow-wtd borrow APY − supply-wtd supply APY, 0..1 (fraction)
       utilization: number;          // 0..1
       takeRate: number | null;      // 0..1, annualized fee / AUC
       spreadPp: number | null;      // stable APY% − tbill%, in pp
@@ -288,14 +312,20 @@ export const getMorphoWideKpis = unstable_cache(
       const borrows = m.borrow;
       const liquidity = deposits - borrows;
       const utilization = deposits > 0 ? borrows / deposits : 0;
+      const borrowInterest = m.borrow_interest;
       const v = vaultByDay.get(m.day);
+      const curatorFees = v?.fee_annual ?? 0;
       const takeRate = v && v.auc > 0 ? v.fee_annual / v.auc : null;
+      // NIM = borrow-weighted borrow APY − supply-weighted supply APY
+      const wBorrowApy = borrows > 0 ? m.borrow_interest / borrows : null;
+      const wSupplyApy = m.supply > 0 ? m.supply_interest / m.supply : null;
+      const nim = wBorrowApy != null && wSupplyApy != null ? wBorrowApy - wSupplyApy : null;
       const stableApy = m.stable_supply && m.stable_supply > 0 && m.stable_apy_num != null
         ? m.stable_apy_num / m.stable_supply           // 0..1
         : null;
       const tb = tbillByDay.get(m.day);                 // percent (e.g. 5.25)
       const spreadPp = stableApy != null && tb != null ? stableApy * 100 - tb : null;
-      return { day: m.day, deposits, borrows, liquidity, utilization, takeRate, spreadPp };
+      return { day: m.day, deposits, borrows, liquidity, borrowInterest, curatorFees, nim, utilization, takeRate, spreadPp };
     });
 
     const last = series[series.length - 1];
@@ -340,6 +370,35 @@ export const getMorphoWideKpis = unstable_cache(
           { label: 'YoY', kind: 'usd', value: last ? usdDelta(last.borrows, d365?.borrows ?? null) : null },
         ],
         sparkline: spark((r) => r.borrows),
+      },
+      borrowInterest: {
+        value: last?.borrowInterest ?? null, display: 'usd',
+        caption: 'annualized, Σ borrows × APY',
+        deltas: [
+          { label: '24h', kind: 'usd', value: last ? usdDelta(last.borrowInterest, d1?.borrowInterest ?? null) : null },
+          { label: 'MoM', kind: 'usd', value: last ? usdDelta(last.borrowInterest, d30?.borrowInterest ?? null) : null },
+          { label: 'YoY', kind: 'usd', value: last ? usdDelta(last.borrowInterest, d365?.borrowInterest ?? null) : null },
+        ],
+        sparkline: spark((r) => r.borrowInterest),
+      },
+      nim: {
+        value: last?.nim ?? null, display: 'bps',
+        caption: 'borrow − supply APY, weighted',
+        deltas: [
+          { label: 'MoM', kind: 'bps', value: ppDelta(last?.nim ?? null, d30?.nim ?? null) },
+          { label: 'YoY', kind: 'bps', value: ppDelta(last?.nim ?? null, d365?.nim ?? null) },
+        ],
+        sparkline: spark((r) => r.nim ?? 0),
+      },
+      curatorFees: {
+        value: last?.curatorFees ?? null, display: 'usd',
+        caption: 'annualized, excl. apy>100%',
+        deltas: [
+          { label: '24h', kind: 'usd', value: last ? usdDelta(last.curatorFees, d1?.curatorFees ?? null) : null },
+          { label: 'MoM', kind: 'usd', value: last ? usdDelta(last.curatorFees, d30?.curatorFees ?? null) : null },
+          { label: 'YoY', kind: 'usd', value: last ? usdDelta(last.curatorFees, d365?.curatorFees ?? null) : null },
+        ],
+        sparkline: spark((r) => r.curatorFees),
       },
       availableLiquidity: {
         value: last?.liquidity ?? null, display: 'usd',
@@ -490,7 +549,7 @@ export const getPerChainCardData = unstable_cache(
 
     // Net deposits 30d: telescope the last 4 weeks of the asset-flows table
     // (week-over-week footprint deltas) per chain. This avoids the
-    // single-30d-anchor trap — early backfill snapshots can record a market
+    // single-30d-anchor trap. Early backfill snapshots can record a market
     // at near-zero before indexing caught up, so a today-minus-30d-ago diff
     // wildly overstates inflow. Weekly deltas are bounded to recent,
     // well-covered weeks and telescope cleanly to a ~28-day net.
@@ -649,8 +708,12 @@ export const getNetSupplyFlows = unstable_cache(
       const rows = (await sql(
         `
         WITH recent AS (
+          -- Exclude the current in-progress week (week_start = this Monday); on
+          -- the first day(s) of a new week it has ~zero net and would render an
+          -- empty period. Use the latest N COMPLETE weeks instead.
           SELECT DISTINCT week_start
           FROM morpho_.morpho_asset_flows_weekly
+          WHERE week_start < date_trunc('week', CURRENT_DATE)::date
           ORDER BY week_start DESC LIMIT $1::int
         )
         SELECT ch.name AS component, f.asset_symbol AS asset, SUM(f.net_flow_usd)::float8 AS net
@@ -667,7 +730,7 @@ export const getNetSupplyFlows = unstable_cache(
       return { view, period, ...buildSankey(pairs) };
     }
 
-    // BY CURATOR — compute live from vault_state_daily over the period window.
+    // BY CURATOR. Compute live from vault_state_daily over the period window.
     // Net flow per (curator, vault asset) = footprint(end) − footprint(start).
     const days = PERIOD_DAYS[period];
     const rows = (await sql(
@@ -690,12 +753,12 @@ export const getNetSupplyFlows = unstable_cache(
       )
       SELECT
         COALESCE(cu.name, 'Unattributed') AS component,
-        COALESCE(v.asset_symbol, '—')      AS asset,
+        COALESCE(v.asset_symbol, 'N/A')      AS asset,
         SUM(COALESCE(b.end_tvl,0) - COALESCE(b.start_tvl,0))::float8 AS net
       FROM bounds b
       JOIN morpho_.vaults v ON v.chain_id = b.chain_id AND v.address = b.vault_address
       LEFT JOIN morpho_.curators cu ON cu.id = v.curator_id
-      GROUP BY COALESCE(cu.name, 'Unattributed'), COALESCE(v.asset_symbol, '—')
+      GROUP BY COALESCE(cu.name, 'Unattributed'), COALESCE(v.asset_symbol, 'N/A')
       `,
       [days],
     )) as { component: string; asset: string; net: number }[];
@@ -830,7 +893,7 @@ export const getOverviewMarketsByPeriod = unstable_cache(
         uniqueKey: r.unique_key,
         chainSlug: r.chain_slug,
         chainName: r.chain_name,
-        pair: `${r.coll ?? '—'} / ${r.loan}`,
+        pair: `${r.coll ?? 'N/A'} / ${r.loan}`,
         supplyUsd: supply,
         liquidityUsd: Math.max(0, supply - borrow),
         borrowUsd: borrow,
@@ -895,7 +958,7 @@ export const getTopMarketsAcrossMorpho = unstable_cache(
         uniqueKey: r.unique_key,
         chainSlug: r.chain_slug,
         chainName: r.chain_name,
-        pair: `${r.coll ?? '—'} / ${r.loan}`,
+        pair: `${r.coll ?? 'N/A'} / ${r.loan}`,
         supplyUsd: supply,
         liquidityUsd: Math.max(0, supply - borrow),
         borrowUsd: borrow,
@@ -937,7 +1000,7 @@ export const getTopMarketsAcrossMorpho = unstable_cache(
 );
 
 // ───────────────────────────────────────────────────────────────────────
-// 7. Protocol TVL comparison + ranking (Section 8 — sector position)
+// 7. Protocol TVL comparison + ranking (Section 8. Sector position)
 // ───────────────────────────────────────────────────────────────────────
 
 export interface ProtocolComparisonOpts {
@@ -959,35 +1022,51 @@ export const getProtocolTvlComparison = unstable_cache(
     const params: unknown[] = [days, slugs];
     if (scope !== 'global') params.push(scope.chain);
 
+    // Downsample to one point per ISO week (the last snapshot in each week).
+    // A multi-year sector-trend line reads identically at weekly resolution,
+    // and this cuts the serialized payload ~7x vs daily (730 → ~104 points per
+    // protocol), which is the dominant contributor to the overview page weight.
     const rows = (await sql(
       `
-      SELECT protocol_slug, snapshot_date::text AS day, SUM(tvl_usd)::float8 AS tvl
-      FROM morpho_.protocol_tvl_daily
-      WHERE snapshot_date >= CURRENT_DATE - ($1::int || ' days')::interval
-        AND protocol_slug = ANY($2::text[])
-        ${chainFilter}
-      GROUP BY protocol_slug, snapshot_date
-      ORDER BY protocol_slug, snapshot_date
+      WITH daily AS (
+        SELECT protocol_slug, snapshot_date,
+          SUM(tvl_usd)::float8 AS tvl,
+          SUM(COALESCE(borrowed_usd, 0))::float8 AS borrowed
+        FROM morpho_.protocol_tvl_daily
+        WHERE snapshot_date >= CURRENT_DATE - ($1::int || ' days')::interval
+          AND protocol_slug = ANY($2::text[])
+          ${chainFilter}
+        GROUP BY protocol_slug, snapshot_date
+      )
+      SELECT DISTINCT ON (protocol_slug, date_trunc('week', snapshot_date))
+        protocol_slug, snapshot_date::text AS day, tvl, borrowed
+      FROM daily
+      ORDER BY protocol_slug, date_trunc('week', snapshot_date), snapshot_date DESC
       `,
       params,
-    )) as { protocol_slug: string; day: string; tvl: number }[];
+    )) as { protocol_slug: string; day: string; tvl: number; borrowed: number }[];
+
+    const pt = (day: string, tvl: number, borrowed: number): ProtocolPoint =>
+      ({ day, tvl, borrows: borrowed, deposits: tvl + borrowed });
 
     const build = (protocols: readonly ProtocolMeta[]): ProtocolSeries[] => {
       if (!collapse) {
         return protocols.map((p) => ({
           key: p.slug, label: p.label, brand: p.brand, legacy: p.legacy,
-          points: rows.filter((r) => r.protocol_slug === p.slug).map((r) => ({ day: r.day, tvl: r.tvl })),
+          points: rows.filter((r) => r.protocol_slug === p.slug).map((r) => pt(r.day, r.tvl, r.borrowed)),
         }));
       }
       return collapseByBrand(protocols).map((g) => {
-        const byDay = new Map<string, number>();
+        const byDay = new Map<string, { tvl: number; borrowed: number }>();
         for (const r of rows) {
           if (!g.slugs.includes(r.protocol_slug)) continue;
-          byDay.set(r.day, (byDay.get(r.day) ?? 0) + r.tvl);
+          const cur = byDay.get(r.day) ?? { tvl: 0, borrowed: 0 };
+          cur.tvl += r.tvl; cur.borrowed += r.borrowed;
+          byDay.set(r.day, cur);
         }
         return {
           key: g.brand, label: g.label, brand: g.brand, legacy: false,
-          points: [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([day, tvl]) => ({ day, tvl })),
+          points: [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([day, v]) => pt(day, v.tvl, v.borrowed)),
         };
       });
     };
@@ -1037,5 +1116,209 @@ export const getProtocolRanking = unstable_cache(
     };
   },
   [CACHE_VERSION, 'protocol-ranking'],
+  { revalidate: TTL, tags: ['overview'] },
+);
+
+// ───────────────────────────────────────────────────────────────────────
+// Absorbed from the (removed) /rates page: lending efficiency + risk pulse.
+// Sector = supply-USD-weighted avg of competitor_rates_daily protocols.
+// EXCLUDE methodology: markets where supply_apy>1.0 OR borrow_apy>1.0 dropped.
+// ───────────────────────────────────────────────────────────────────────
+
+const EFFICIENCY_ASSETS = ['USDC', 'USDT', 'DAI', 'WETH'] as const;
+const EFFICIENCY_COMPETITORS = [
+  { slug: 'aave-v3', name: 'Aave V3' },
+  { slug: 'compound-v3', name: 'Compound V3' },
+  { slug: 'fluid-lending', name: 'Fluid' },
+  { slug: 'euler-v2', name: 'Euler V2' },
+] as const;
+const EFFICIENCY_CHAINS: Record<string, number> = { ethereum: 1, base: 8453, arbitrum: 42161, polygon: 137 };
+
+export interface LendingEfficiencyRow {
+  asset: string;
+  morphoApy: number | null;
+  byCompetitor: Record<string, number | null>;   // slug → supply APY
+  sectorAvgApy: number | null;
+  spreadVsSectorBps: number | null;
+}
+export interface LendingEfficiencyTable {
+  chain: string;
+  competitors: { slug: string; name: string }[];
+  rows: LendingEfficiencyRow[];
+  headlineBps: number | null;   // USDC spread vs sector
+}
+
+export const getLendingEfficiencyTable = unstable_cache(
+  async (chain = 'ethereum'): Promise<LendingEfficiencyTable> => {
+    const sql = getDb();
+    const chainId = EFFICIENCY_CHAINS[chain] ?? 1;
+    const assets = [...EFFICIENCY_ASSETS] as string[];
+
+    const morpho = (await sql`
+      WITH latest AS (
+        SELECT * FROM (SELECT DISTINCT ON (market_unique_key) market_unique_key, supply_assets_usd, supply_apy, borrow_apy
+          FROM morpho_.market_state_daily ORDER BY market_unique_key, snapshot_date DESC) q
+        WHERE (q.borrow_apy IS NULL OR q.borrow_apy <= 1.0) AND (q.supply_apy IS NULL OR q.supply_apy <= 1.0)
+      )
+      SELECT UPPER(m.loan_asset_symbol) AS asset,
+        SUM(l.supply_assets_usd * LEAST(l.supply_apy, 1.0))::float8 / NULLIF(SUM(l.supply_assets_usd), 0) AS apy
+      FROM morpho_.markets m JOIN latest l ON l.market_unique_key = m.unique_key
+      WHERE m.chain_id = ${chainId} AND UPPER(m.loan_asset_symbol) = ANY(${assets}::text[]) AND l.supply_assets_usd > 0
+      GROUP BY UPPER(m.loan_asset_symbol)
+    `) as { asset: string; apy: number | null }[];
+    const morphoBy = new Map(morpho.map((r) => [r.asset, r.apy] as const));
+
+    const comp = (await sql`
+      WITH latest AS (SELECT DISTINCT ON (protocol_slug, asset_symbol) protocol_slug, asset_symbol, supply_apy, supply_usd
+        FROM morpho_.competitor_rates_daily WHERE chain_id = ${chainId} ORDER BY protocol_slug, asset_symbol, snapshot_date DESC)
+      SELECT UPPER(asset_symbol) AS asset, protocol_slug, supply_apy::float8 AS apy, supply_usd::float8 AS supply_usd FROM latest
+    `) as { asset: string; protocol_slug: string; apy: number | null; supply_usd: number | null }[];
+    const compBy = new Map<string, { apy: number | null; supply: number }>();
+    for (const r of comp) compBy.set(`${r.asset}|${r.protocol_slug}`, { apy: r.apy, supply: r.supply_usd ?? 1 });
+
+    const rows: LendingEfficiencyRow[] = EFFICIENCY_ASSETS.map((asset) => {
+      const morphoApy = morphoBy.get(asset) ?? null;
+      const byCompetitor: Record<string, number | null> = {};
+      let num = 0, den = 0;
+      for (const c of EFFICIENCY_COMPETITORS) {
+        const cell = compBy.get(`${asset}|${c.slug}`);
+        byCompetitor[c.slug] = cell?.apy ?? null;
+        if (cell?.apy != null) { num += cell.apy * cell.supply; den += cell.supply; }
+      }
+      const sectorAvg = den > 0 ? num / den : null;
+      return { asset, morphoApy, byCompetitor, sectorAvgApy: sectorAvg, spreadVsSectorBps: morphoApy != null && sectorAvg != null ? (morphoApy - sectorAvg) * 10000 : null };
+    });
+    return {
+      chain, competitors: EFFICIENCY_COMPETITORS.map((c) => ({ slug: c.slug, name: c.name })),
+      rows, headlineBps: rows.find((r) => r.asset === 'USDC')?.spreadVsSectorBps ?? null,
+    };
+  },
+  [CACHE_VERSION, 'lending-efficiency'],
+  { revalidate: TTL, tags: ['overview'] },
+);
+
+export interface RiskPulse {
+  badDebtUsd: number;
+  badDebtMarketCount: number;
+  topMarketPct: number | null;       // largest single market's share of bad debt
+  topMarketPair: string | null;
+  stressedMarketCount: number;
+  stressedSupplyUsd: number;
+  stressedPctOfActiveLoans: number | null;
+  weightedLltv: number | null;
+  weightedLltvPriorWeek: number | null;
+}
+
+export const getRiskPulse = unstable_cache(
+  async (): Promise<RiskPulse> => {
+    const sql = getDb();
+    const bd = (await sql`
+      WITH latest AS (SELECT DISTINCT ON (market_unique_key) market_unique_key, bad_debt_assets_usd FROM morpho_.market_state_daily ORDER BY market_unique_key, snapshot_date DESC)
+      SELECT l.bad_debt_assets_usd::float8 AS bd, m.collateral_asset_symbol AS col, m.loan_asset_symbol AS loan
+      FROM latest l JOIN morpho_.markets m ON m.unique_key = l.market_unique_key
+      WHERE l.bad_debt_assets_usd > 1000 ORDER BY l.bad_debt_assets_usd DESC
+    `) as { bd: number; col: string | null; loan: string }[];
+    const badTotal = bd.reduce((s, r) => s + r.bd, 0);
+    const top = bd[0];
+
+    const stressed = (await sql`
+      WITH latest AS (
+        SELECT * FROM (SELECT DISTINCT ON (market_unique_key) market_unique_key, supply_assets_usd, borrow_assets_usd, utilization, supply_apy, borrow_apy
+          FROM morpho_.market_state_daily ORDER BY market_unique_key, snapshot_date DESC) q
+        WHERE (q.borrow_apy IS NULL OR q.borrow_apy <= 1.0) AND (q.supply_apy IS NULL OR q.supply_apy <= 1.0)
+      )
+      SELECT
+        COUNT(*) FILTER (WHERE utilization > 0.9 AND supply_assets_usd > 0)::int AS n,
+        COALESCE(SUM(supply_assets_usd) FILTER (WHERE utilization > 0.9), 0)::float8 AS stressed_supply,
+        COALESCE(SUM(borrow_assets_usd), 0)::float8 AS total_borrow
+      FROM latest
+    `) as { n: number; stressed_supply: number; total_borrow: number }[];
+    const st = stressed[0]!;
+
+    const lltvNow = (await sql`
+      WITH latest AS (
+        SELECT * FROM (SELECT DISTINCT ON (market_unique_key) market_unique_key, supply_assets_usd, supply_apy, borrow_apy
+          FROM morpho_.market_state_daily ORDER BY market_unique_key, snapshot_date DESC) q
+        WHERE (q.borrow_apy IS NULL OR q.borrow_apy <= 1.0) AND (q.supply_apy IS NULL OR q.supply_apy <= 1.0)
+      )
+      SELECT SUM(m.lltv::numeric * l.supply_assets_usd)::float8 / NULLIF(SUM(l.supply_assets_usd), 0) AS wl
+      FROM morpho_.markets m JOIN latest l ON l.market_unique_key = m.unique_key WHERE m.lltv IS NOT NULL AND l.supply_assets_usd > 0
+    `) as { wl: number | null }[];
+    const lltvWeek = (await sql`
+      WITH latest AS (
+        SELECT * FROM (SELECT DISTINCT ON (market_unique_key) market_unique_key, supply_assets_usd, supply_apy, borrow_apy
+          FROM morpho_.market_state_daily WHERE snapshot_date <= CURRENT_DATE - INTERVAL '7 days' ORDER BY market_unique_key, snapshot_date DESC) q
+        WHERE (q.borrow_apy IS NULL OR q.borrow_apy <= 1.0) AND (q.supply_apy IS NULL OR q.supply_apy <= 1.0)
+      )
+      SELECT SUM(m.lltv::numeric * l.supply_assets_usd)::float8 / NULLIF(SUM(l.supply_assets_usd), 0) AS wl
+      FROM morpho_.markets m JOIN latest l ON l.market_unique_key = m.unique_key WHERE m.lltv IS NOT NULL AND l.supply_assets_usd > 0
+    `) as { wl: number | null }[];
+
+    return {
+      badDebtUsd: badTotal, badDebtMarketCount: bd.length,
+      topMarketPct: badTotal > 0 && top ? top.bd / badTotal : null,
+      topMarketPair: top ? `${top.col ?? 'N/A'} / ${top.loan}` : null,
+      stressedMarketCount: st.n, stressedSupplyUsd: st.stressed_supply,
+      stressedPctOfActiveLoans: st.total_borrow > 0 ? st.stressed_supply / st.total_borrow : null,
+      weightedLltv: lltvNow[0]?.wl ?? null, weightedLltvPriorWeek: lltvWeek[0]?.wl ?? null,
+    };
+  },
+  [CACHE_VERSION, 'risk-pulse'],
+  { revalidate: TTL, tags: ['overview'] },
+);
+
+// ---------- Asset-class asymmetry (deposits vs borrow interest) ----------
+//
+// Where capital sits vs where economic activity concentrates. For each asset
+// class: deposits share (supply + collateral, classified by asset) and the
+// share of annualized borrow interest (Σ borrow_usd × min(borrow_apy,1.0) by
+// the LENT asset). Bad-oracle markets (APY > 100%) are excluded from both.
+export interface AssetClassAsymmetryRow {
+  key: AssetClass;
+  label: string;
+  depositsUsd: number;
+  interestUsd: number;
+  depositsPct: number;   // 0..1
+  interestPct: number;   // 0..1
+}
+
+export const getAssetClassAsymmetry = unstable_cache(
+  async (): Promise<{ asOfDate: string; rows: AssetClassAsymmetryRow[]; totalDepositsUsd: number; totalInterestUsd: number }> => {
+    const sql = getDb();
+    const meta = (await sql`SELECT MAX(snapshot_date)::text AS d FROM morpho_.market_state_daily`) as { d: string | null }[];
+    const asOfDate = meta[0]?.d ?? '';
+    const raw = (await sql`
+      SELECT m.loan_asset_symbol AS loan, m.collateral_asset_symbol AS coll,
+             s.borrow_assets_usd::float8 AS b, s.supply_assets_usd::float8 AS sup,
+             s.collateral_assets_usd::float8 AS col, s.borrow_apy::float8 AS bapy, s.supply_apy::float8 AS sapy
+      FROM morpho_.markets m
+      JOIN LATERAL (
+        SELECT * FROM morpho_.market_state_daily x
+        WHERE x.market_unique_key = m.unique_key ORDER BY x.snapshot_date DESC LIMIT 1
+      ) s ON TRUE
+    `) as { loan: string | null; coll: string | null; b: number | null; sup: number | null; col: number | null; bapy: number | null; sapy: number | null }[];
+
+    const dep = {} as Record<AssetClass, number>;
+    const intr = {} as Record<AssetClass, number>;
+    for (const k of ASSET_CLASS_ORDER) { dep[k] = 0; intr[k] = 0; }
+    for (const r of raw) {
+      if ((r.bapy != null && r.bapy > 1.0) || (r.sapy != null && r.sapy > 1.0)) continue;
+      dep[categorizeAsset(r.loan)] += r.sup ?? 0;
+      dep[categorizeAsset(r.coll)] += r.col ?? 0;
+      intr[categorizeAsset(r.loan)] += (r.b ?? 0) * Math.min(r.bapy ?? 0, 1.0);
+    }
+    const totalDepositsUsd = ASSET_CLASS_ORDER.reduce((a, k) => a + dep[k], 0);
+    const totalInterestUsd = ASSET_CLASS_ORDER.reduce((a, k) => a + intr[k], 0);
+    const rows: AssetClassAsymmetryRow[] = ASSET_CLASS_ORDER.map((k) => ({
+      key: k,
+      label: ASSET_CLASS_LABEL[k],
+      depositsUsd: dep[k],
+      interestUsd: intr[k],
+      depositsPct: totalDepositsUsd > 0 ? dep[k] / totalDepositsUsd : 0,
+      interestPct: totalInterestUsd > 0 ? intr[k] / totalInterestUsd : 0,
+    }));
+    return { asOfDate, rows, totalDepositsUsd, totalInterestUsd };
+  },
+  [CACHE_VERSION, 'asset-class-asymmetry'],
   { revalidate: TTL, tags: ['overview'] },
 );

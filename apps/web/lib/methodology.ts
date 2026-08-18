@@ -1,10 +1,10 @@
 /**
- * Methodology config — single source of truth for chart + KPI definitions.
+ * Methodology config. Single source of truth for chart + KPI definitions.
  *
  * Source of truth lives in `content/methodology.json`. Each chart's
  * `<MethodologyTooltip>` either passes `methodologyKey` (looked up here) or
  * inline `text` / `source`. Adding a new chart? Drop an entry into the JSON
- * and pass the key — no code change needed.
+ * and pass the key. No code change needed.
  *
  * Loaded via a static JSON import so it ships to the client as a JS object
  * (no fs / API roundtrip).

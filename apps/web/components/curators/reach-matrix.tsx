@@ -9,7 +9,7 @@ interface Props {
 }
 
 // Heatmap: rows = top curators, columns = top chains. Cell shaded by magnitude.
-// Brand accent (#ff8155) at full magnitude, fading to bg with opacity.
+// Brand accent (orange #FF8155) at full magnitude, fading to bg with opacity.
 export function ReachMatrix({ curators, chains, cells, maxTvl }: Props) {
   const cellMap = new Map<string, ReachMatrixCell>();
   for (const c of cells) cellMap.set(`${c.curatorId}|${c.chainSlug}`, c);
@@ -55,7 +55,7 @@ export function ReachMatrix({ curators, chains, cells, maxTvl }: Props) {
                         {fmtUsd(c.tvlUsd, { compact: true })}
                       </span>
                     ) : (
-                      <span className="text-text-muted">—</span>
+                      <span className="text-text-muted">N/A</span>
                     )}
                   </td>
                 );

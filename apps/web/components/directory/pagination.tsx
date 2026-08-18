@@ -61,7 +61,7 @@ export function Pagination({ page, totalPages, totalRows, pageSize, basePath, ba
         {btn('Next ▶', buildHref(page + 1), nextDisabled)}
       </div>
       <div className="text-tiny uppercase tracking-header-medium text-text-muted">
-        Showing <span className="text-text-primary">{start}</span>–
+        Showing <span className="text-text-primary">{start}</span>-
         <span className="text-text-primary">{end}</span> of{' '}
         <span className="text-text-primary">{totalRows}</span>
       </div>

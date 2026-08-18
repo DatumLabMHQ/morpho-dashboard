@@ -1,5 +1,5 @@
 /**
- * MethodologyCard — full-width footer card explaining a page's methodology
+ * MethodologyCard. Full-width footer card explaining a page's methodology
  * in 1-3 paragraphs. Used on pages where chart-level ⓘ tooltips aren't
  * enough (e.g. /rates and /curators where there's cross-chart context).
  *

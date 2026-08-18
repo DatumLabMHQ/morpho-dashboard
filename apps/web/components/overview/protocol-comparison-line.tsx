@@ -1,10 +1,9 @@
 'use client';
 
 import { format, parseISO } from 'date-fns';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -16,7 +15,7 @@ import {
 import { tokens } from '@/lib/brand/tokens';
 import { fmtUsd } from '@/lib/format';
 import { BRAND_COLORS } from '@/lib/protocols/comparison-set';
-import type { ProtocolComparisonResult } from '@/lib/queries/overview';
+import type { ProtocolComparisonResult, SectorMetric } from '@/lib/queries/overview';
 
 interface Props {
   data: ProtocolComparisonResult;
@@ -29,11 +28,17 @@ interface RowShape {
   [key: string]: string | number;
 }
 
+const METRICS: { value: SectorMetric; label: string; caption: string }[] = [
+  { value: 'deposits', label: 'Deposits', caption: 'total supplied' },
+  { value: 'borrows', label: 'Active Loans', caption: 'outstanding borrows' },
+  { value: 'tvl', label: 'TVL', caption: 'net = supplied − borrowed' },
+];
+
 /**
  * Multi-line TVL comparison across the lending sector. Two visual layers:
- *   - Lending protocols (LENDING_PROTOCOLS.overcollateralized) — solid lines,
+ *   - Lending protocols (LENDING_PROTOCOLS.overcollateralized). Solid lines,
  *     full opacity. Drawn last so they sit on top.
- *   - CDP protocols (LENDING_PROTOCOLS.cdp) — dashed lines, ~40% opacity.
+ *   - CDP protocols (LENDING_PROTOCOLS.cdp). Dashed lines, ~40% opacity.
  *     Drawn first as the background layer.
  *
  * `data.collapsedLegacy` (set by the data layer) controls whether v2+v3
@@ -41,7 +46,9 @@ interface RowShape {
  * legacy variants get the lighter shade so the brand stays identifiable.
  */
 export function ProtocolComparisonLine({ data, showCdp }: Props) {
-  // Wide-pivot { day: { key: tvl, ... } } across both layers.
+  const [metric, setMetric] = useState<SectorMetric>('deposits');
+
+  // Wide-pivot { day: { key: value, ... } } across both layers for the active metric.
   const flatRows: RowShape[] = useMemo(() => {
     const byDay = new Map<string, RowShape>();
     const all = [...data.lending, ...(showCdp ? data.cdp : [])];
@@ -49,19 +56,30 @@ export function ProtocolComparisonLine({ data, showCdp }: Props) {
       for (const p of s.points) {
         let r = byDay.get(p.day);
         if (!r) { r = { day: p.day }; byDay.set(p.day, r); }
-        r[s.key] = p.tvl;
+        r[s.key] = p[metric];
       }
     }
     return [...byDay.values()].sort((a, b) => a.day.localeCompare(b.day));
-  }, [data, showCdp]);
+  }, [data, showCdp, metric]);
 
-  if (flatRows.length === 0) {
-    return (
-      <div className="flex h-[300px] items-center justify-center text-small uppercase tracking-header-medium text-text-muted">
-        No data
-      </div>
-    );
-  }
+  // Metric-aware ranking from the latest point of each overcollateralized series.
+  const ranking = useMemo(() => {
+    const latest = data.lending
+      .map((s) => ({ label: s.label, brand: s.brand, value: s.points.at(-1)?.[metric] ?? 0 }))
+      .filter((r) => r.value > 0)
+      .sort((a, b) => b.value - a.value);
+    const idx = latest.findIndex((r) => r.brand === 'morpho');
+    if (idx < 0) return null;
+    const above = idx > 0 ? latest[idx - 1]! : null;
+    return {
+      rank: idx + 1,
+      total: latest.length,
+      gap: above ? above.value - latest[idx]!.value : null,
+      aboveLabel: above?.label ?? null,
+    };
+  }, [data.lending, metric]);
+
+  const metricLabel = METRICS.find((m) => m.value === metric)!.label;
 
   const colorFor = (brand: string, legacy: boolean) => {
     const c = BRAND_COLORS[brand];
@@ -71,6 +89,38 @@ export function ProtocolComparisonLine({ data, showCdp }: Props) {
 
   return (
     <div>
+      {/* Metric toggle + dynamic ranking caption */}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-tiny text-text-muted">
+          {ranking ? (
+            <>
+              Morpho ranks <span className="text-text-primary">#{ranking.rank} of {ranking.total}</span> overcollateralized lending protocols by {metricLabel.toLowerCase()}.
+              {ranking.aboveLabel && ranking.gap != null && (
+                <> Gap to {ranking.aboveLabel}: <span className="text-text-primary">{fmtUsd(ranking.gap, { compact: true })}</span>.</>
+              )}
+            </>
+          ) : 'Lending sector comparison.'}
+        </p>
+        <div style={{ display: 'inline-flex', borderRadius: 4, border: '1px solid var(--card-border)', overflow: 'hidden', background: 'var(--background)' }}>
+          {METRICS.map((m) => (
+            <button
+              key={m.value}
+              type="button"
+              onClick={() => setMetric(m.value)}
+              title={m.caption}
+              style={{
+                padding: '3px 10px', fontSize: 10, fontWeight: 500, cursor: 'pointer', border: 'none',
+                fontFamily: 'inherit', textTransform: 'uppercase', letterSpacing: '0.05em',
+                background: metric === m.value ? 'var(--card-border)' : 'transparent',
+                color: metric === m.value ? 'var(--text-primary)' : 'var(--text-muted)',
+              }}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <ResponsiveContainer width="100%" height={360}>
         <LineChart data={flatRows} margin={{ top: 12, right: 16, left: 8, bottom: 8 }}>
           <CartesianGrid strokeDasharray="2 4" stroke="hsla(0, 0%, 100%, 0.06)" />

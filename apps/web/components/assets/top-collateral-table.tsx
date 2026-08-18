@@ -70,10 +70,10 @@ export function TopCollateralTable({ rows }: Props) {
               <td className="py-2.5 px-2 text-right tabular-nums text-text-primary">{fmtUsd(r.collateralizingUsd, { compact: true })}</td>
               <td className="py-2.5 px-2 text-right tabular-nums text-text-secondary">{r.marketCount}</td>
               <td className="py-2.5 px-2 text-right tabular-nums text-text-secondary">
-                {r.maxLltvPct == null ? '—' : `${(r.maxLltvPct * 100).toFixed(0)}%`}
+                {r.maxLltvPct == null ? 'N/A' : `${(r.maxLltvPct * 100).toFixed(0)}%`}
               </td>
               <td className="py-2.5 px-2 text-right tabular-nums text-text-secondary">
-                {r.weightedUtil == null ? '—' : `${(r.weightedUtil * 100).toFixed(1)}%`}
+                {r.weightedUtil == null ? 'N/A' : `${(r.weightedUtil * 100).toFixed(1)}%`}
               </td>
             </tr>
           ))}

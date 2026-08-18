@@ -168,7 +168,7 @@ export function ChainsPageClient({ payload }: Props) {
         </h2>
         <ChainsTable rows={payload.table} />
         <p className="mt-3 text-tiny uppercase tracking-header-medium text-text-muted">
-          12-month delta in percentage points · &quot;—&quot; means no data 12 months ago
+          12-month delta in percentage points · &quot;N/A&quot; means no data 12 months ago
         </p>
       </section>
     </div>

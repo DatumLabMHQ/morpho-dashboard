@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * TimeToggle — segmented control for switching a chart's time bucket.
+ * TimeToggle. Segmented control for switching a chart's time bucket.
  *
  * Default options are W / M / Q (7 / 30 / 90 days) per the spec. Pass
  * custom `options` + `labels` to override (e.g. add 1Y, All-time).

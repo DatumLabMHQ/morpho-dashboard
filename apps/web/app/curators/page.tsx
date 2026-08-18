@@ -1,173 +1,75 @@
-import { ConcentrationPanel } from '@/components/curators/concentration-panel';
-import { CuratorShareBar } from '@/components/curators/curator-share-bars';
-import { CuratorTable } from '@/components/curators/curator-table';
-import { ReachMatrix } from '@/components/curators/reach-matrix';
+import { CuratorsAssetMgrClient } from '@/components/curators/curators-assetmgr-client';
 import { PageProvenance } from '@/components/provenance';
 import { EmptyState } from '@/components/ui/empty-state';
-import { KpiCard } from '@/components/ui/kpi-card';
 import { hasDatabaseUrl } from '@/lib/db';
-import { fmtNumber, fmtUsd } from '@/lib/format';
 import {
   getConcentrationStats,
+  getCuratorAumByCuratorSeries,
   getCuratorDirectoryHeader,
+  getCuratorEconomics,
+  getCuratorPerformanceScatter,
   getCuratorReachMatrix,
-  getCuratorRevenueLeaderboard,
   getCuratorShareStack,
-  getCuratorTable,
-  getDirectoryKpis,
+  getCuratorStructuralIdentityMatrix,
+  getCuratorTableWithBorrowInterest,
+  getCuratorsHeadlineKpis,
 } from '@/lib/queries/curators';
 
 export const revalidate = 900;
 
 export default async function CuratorsDirectoryPage() {
   if (!hasDatabaseUrl()) {
-    return (
-      <EmptyState
-        title="Database not configured"
-        message="Local: apps/web/.env.local. Production: Vercel env."
-      />
-    );
+    return <EmptyState title="Database not configured" message="Local: apps/web/.env.local. Production: Vercel env." />;
   }
 
-  const [header, concentration, kpis, table, allBar, ethBar, reach, revLeaderboard] = await Promise.all([
+  const [header, concentration, kpis, series, economics, structural, scatter, table, allBar, ethBar, reach] = await Promise.all([
     getCuratorDirectoryHeader(),
     getConcentrationStats(),
-    getDirectoryKpis(),
-    getCuratorTable(),
+    getCuratorsHeadlineKpis(),
+    getCuratorAumByCuratorSeries('AUM', 365),
+    getCuratorEconomics(),
+    getCuratorStructuralIdentityMatrix(15),
+    getCuratorPerformanceScatter(),
+    getCuratorTableWithBorrowInterest(),
     getCuratorShareStack('all'),
     getCuratorShareStack('ethereum'),
     getCuratorReachMatrix(10, 8),
-    getCuratorRevenueLeaderboard(5),
   ]);
 
-  if (!header.activeCurators) {
-    return (
-      <EmptyState
-        title="No curators yet"
-        message="The Morpho curators registry hasn't been synced. Trigger /sync/curators."
-      />
-    );
+  if (economics.length === 0) {
+    return <EmptyState title="No curators yet" message="The Morpho curators registry hasn't been synced. Trigger /sync/curators." />;
   }
 
-  // Total revenue (incl. unattributed) — denominator for revenue leaderboard share.
-  const totalRevenue = revLeaderboard.reduce((s, r) => s + r.estAnnualRevenueUsd, 0);
+  const totalAum = economics.reduce((s, e) => s + e.aum, 0);
+  const totalBorrowInterest = economics.reduce((s, e) => s + e.borrowInterestCaptured, 0);
+  const totalFees = economics.reduce((s, e) => s + e.curatorFees, 0);
 
   return (
-    <div className="space-y-6">
-      {/* 1. HEADER BLOCK */}
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-[28px] uppercase tracking-header-medium text-text-primary leading-none">
-            Curators
-          </h1>
-          <p className="mt-2 text-body text-text-secondary">
-            {fmtNumber(header.activeCurators)} active curators managing{' '}
-            <span className="text-text-primary">{fmtUsd(header.totalCuratedTvlUsd, { compact: true })}</span>{' '}
-            across {fmtNumber(header.chainCount)} chains
-          </p>
-        </div>
-        <ConcentrationPanel stats={concentration} />
-      </header>
-
-      {/* 2. KPI STRIP */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <KpiCard label="Active Curators"      value={fmtNumber(kpis.activeCurators)} accent="chart-1" />
-        <KpiCard label="Multi-Chain Curators" value={fmtNumber(kpis.multiChainCurators)} subtext="≥ 2 chains" accent="chart-2" />
-        <KpiCard
-          label="Largest Curator"
-          value={fmtUsd(kpis.largestTvlUsd, { compact: true })}
-          subtext={kpis.largestCuratorName ? `${kpis.largestCuratorName.toUpperCase()} · ${(kpis.largestShare * 100).toFixed(1)}%` : undefined}
-          accent="chart-6"
-        />
-        <KpiCard label="Est. Annual Revenue"  value={fmtUsd(kpis.totalRevenueUsd, { compact: true })} subtext="Σ tvl × apy × fee" accent="chart-3" />
-        <KpiCard label="Curated Vaults"       value={fmtNumber(kpis.vaultCount)} accent="chart-4" />
-      </div>
-
-      {/* 3. TOP CURATORS TABLE */}
-      <section className="rounded-lg border border-border bg-surface p-5">
-        <h2 className="mb-3 text-small uppercase tracking-header-wide text-text-muted">
-          Top Curators
-        </h2>
-        <CuratorTable rows={table} />
-      </section>
-
-      {/* 4. SHARE STACKED BARS */}
-      <section className="rounded-lg border border-border bg-surface p-5">
-        <h2 className="mb-4 text-small uppercase tracking-header-wide text-text-muted">
-          Curator Share — Visual Stack
-        </h2>
-        <div className="space-y-5">
-          <CuratorShareBar label="All chains · top 10 + others" slices={allBar} />
-          <CuratorShareBar label="Ethereum only · top 10 + others" slices={ethBar} />
-        </div>
-        <p className="mt-4 text-tiny uppercase tracking-header-medium text-text-muted">
-          Hover for $ + %. Per-chain concentration tends to run higher than global.
-        </p>
-      </section>
-
-      {/* 5. REACH MATRIX */}
-      <section className="rounded-lg border border-border bg-surface p-5">
-        <h2 className="mb-3 text-small uppercase tracking-header-wide text-text-muted">
-          Curator Reach Matrix — Top 10 × Top 8 chains
-        </h2>
-        <ReachMatrix
-          curators={reach.curators}
-          chains={reach.chains}
-          cells={reach.cells}
-          maxTvl={reach.maxTvl}
-        />
-        <p className="mt-3 text-tiny uppercase tracking-header-medium text-text-muted">
-          Cell intensity is per-cell TVL relative to the matrix max. Empty cells mean no live vault.
-        </p>
-      </section>
-
-      {/* 6. REVENUE LEADERBOARD */}
-      <section className="rounded-lg border border-border bg-surface p-5">
-        <h2 className="mb-3 text-small uppercase tracking-header-wide text-text-muted">
-          Estimated Annual Revenue — Top 5
-        </h2>
-        <table className="w-full text-body">
-          <thead>
-            <tr className="border-b border-border text-left">
-              <th className="pb-2 text-tiny font-normal uppercase tracking-header-medium text-text-muted">Curator</th>
-              <th className="pb-2 text-right text-tiny font-normal uppercase tracking-header-medium text-text-muted">Est. Revenue</th>
-              <th className="pb-2 text-right text-tiny font-normal uppercase tracking-header-medium text-text-muted">% of Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {revLeaderboard.map((r) => (
-              <tr key={r.curatorId ?? 'unattributed'} className="border-b border-border last:border-0">
-                <td className="py-2.5">
-                  <span className={`uppercase tracking-header-medium ${r.isUnattributed ? 'text-text-muted' : 'text-text-primary'}`}>
-                    {r.curatorName}
-                  </span>
-                  {r.isUnattributed && (
-                    <span
-                      className="ml-2 text-tiny text-text-muted"
-                      title="Revenue from vaults whose fee_recipient address doesn't match a known curator. Total is preserved but unattributable until we map the recipient."
-                    >
-                      (fee_recipient unmapped)
-                    </span>
-                  )}
-                </td>
-                <td className="py-2.5 text-right tabular-nums text-text-primary">{fmtUsd(r.estAnnualRevenueUsd, { compact: true })}</td>
-                <td className="py-2.5 text-right tabular-nums text-text-secondary">
-                  {totalRevenue > 0 ? `${(r.sharePct * 100).toFixed(1)}%` : '—'}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
+    <div className="space-y-5">
+      <CuratorsAssetMgrClient
+        totalAum={totalAum}
+        chainCount={header.chainCount}
+        totalBorrowInterest={totalBorrowInterest}
+        totalFees={totalFees}
+        concentration={concentration}
+        kpis={kpis}
+        series={series}
+        economics={economics}
+        structural={structural}
+        scatter={scatter}
+        allBar={allBar}
+        ethBar={ethBar}
+        reach={reach}
+        table={table}
+      />
       <PageProvenance
-        pageTitle="Curator directory"
+        pageTitle="Curators. Asset managers"
         pageUrl="/curators"
         fetchedAt={header.asOfDate ?? new Date().toISOString()}
         source="Morpho GraphQL · vault_state_daily × vaults.fee_recipient_address"
         methodology={{
-          text: "Two attribution paths, picked by what's being measured.\nTVL / share / concentration uses vaults.curator_id (Morpho's declared curator, including V2 multi-curator). \"Unattributed TVL\" = vaults where curator_id IS NULL.\nRevenue uses vault.fee_recipient_address joined to curator_addresses. \"UNATTRIBUTED\" revenue = no curator address matched the fee recipient. Revenue formula = TVL × pre-fee APY × fee_bps/10000, annualized. Fees realize in vault shares, so the USD-marked revenue varies with share price.\nThe asset-class mix on each curator's detail page uses vault.asset_symbol as a proxy — true allocation-level data lives in vault_allocations_daily, which is empty until the backfill drains.",
-          source: 'morpho_.vaults × morpho_.curators × vault_state_daily.net_apy (post-fee)',
+          text: "Curators analyzed as asset managers. AUM = Σ vault TVL; Borrow Interest Captured = Σ TVL × pre-fee APY; Curator Fees = × performance fee; Fee Take Rate = fees ÷ borrow interest captured; Net APY Delivered = AUM-weighted net_apy. APYs clamped at 100% and vaults reporting >100% APY are excluded (degenerate-IRM). The Curator Fees time series begins where per-vault fee capture becomes reliable; the source serves only the current fee, not a fee history.",
+          source: 'morpho_.vaults × morpho_.curators × morpho_.vault_state_daily',
         }}
       />
     </div>

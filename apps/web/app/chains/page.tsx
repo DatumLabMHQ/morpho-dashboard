@@ -1,10 +1,18 @@
-import { ChainsPageClient } from '@/components/chains/chains-page-client';
+import { ChainsLoanbookClient } from '@/components/chains/chains-loanbook-client';
 import { PageProvenance } from '@/components/provenance';
 import { EmptyState } from '@/components/ui/empty-state';
 import { hasDatabaseUrl } from '@/lib/db';
-import { getChainsPagePayload } from '@/lib/queries/chains';
+import {
+  getActiveLoanByChainSeries,
+  getChainEconomicsMatrix,
+  getChainsHeadlineKpis,
+  getChainsTableExpanded,
+  getCuratorChainMatrix,
+  getLoanbookAsOf,
+  getStructuralIdentityMatrix,
+} from '@/lib/queries/chains';
 
-// Outer revalidate matches the unstable_cache TTL in the query.
+// Outer revalidate matches the unstable_cache TTL in the queries.
 export const revalidate = 900;
 
 export default async function ChainsPage() {
@@ -17,29 +25,41 @@ export default async function ChainsPage() {
     );
   }
 
-  const payload = await getChainsPagePayload();
+  const [asOfDate, kpis, series, structural, economics, curatorMatrix, table] = await Promise.all([
+    getLoanbookAsOf(),
+    getChainsHeadlineKpis(),
+    getActiveLoanByChainSeries('ACTIVE_LOANS', 730),
+    getStructuralIdentityMatrix(),
+    getChainEconomicsMatrix(),
+    getCuratorChainMatrix(10, 8),
+    getChainsTableExpanded(),
+  ]);
 
-  if (payload.chains.length === 0) {
+  if (economics.length === 0) {
     return (
       <EmptyState
-        title="No eligible chains yet"
-        message="Morpho needs ≥$50M TVL on a chain at some point for it to appear here. Either the sync hasn't run yet or no chain meets the threshold."
+        title="No chains with active loans yet"
+        message="Either the market-state sync hasn't run or no chain has live Morpho borrowing."
       />
     );
   }
 
   return (
     <div className="space-y-5">
-      <ChainsPageClient payload={payload} />
+      <ChainsLoanbookClient
+        asOfDate={asOfDate}
+        kpis={kpis}
+        series={series}
+        structural={structural}
+        economics={economics}
+        curatorMatrix={curatorMatrix}
+        table={table}
+      />
       <PageProvenance
-        pageTitle="Chain directory"
+        pageTitle="Chains. Loan book"
         pageUrl="/chains"
         fetchedAt={new Date().toISOString()}
-        source="DefiLlama /protocol/morpho-blue chainTvls + Morpho GraphQL chain registry"
-        methodology={{
-          text: "Each row is a chain Morpho has live markets on. TVL per chain is morpho-blue's chainTvls value from DefiLlama's protocol detail endpoint. Lending share is Morpho's TVL on that chain divided by the total of every protocol DefiLlama categorizes as 'Lending' or 'CDP' on that chain. The 12-month-ago anchor on each chain card is the same TVL series from 365 days before today's snapshot.",
-          source: 'morpho_.chain_lending_tvl_daily · morpho_.protocol_tvl_daily',
-        }}
+        source="Morpho GraphQL market/vault state + DefiLlama per-chain TVL"
       />
     </div>
   );

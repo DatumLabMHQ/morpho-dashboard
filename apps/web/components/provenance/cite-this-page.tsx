@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * CiteThisPage — small footer card with a copyable academic-style citation.
+ * CiteThisPage. Small footer card with a copyable academic-style citation.
  *
  * Ported from the Lending Intelligence Terminal. Date is computed client-side
  * so the citation always reflects the visit date, not a stale build time.

@@ -48,7 +48,7 @@ export function CuratorPerfChart({ data }: Props) {
             formatter={(v: unknown, name: unknown) => {
               const n = typeof v === 'number' ? v : null;
               const label = name === 'curatorNetApy' ? 'This curator' : 'Morpho-wide';
-              return [n == null ? '—' : `${(n * 100).toFixed(2)}%`, label];
+              return [n == null ? 'N/A' : `${(n * 100).toFixed(2)}%`, label];
             }}
             contentStyle={{
               background: tokens.colors.tooltipBg,

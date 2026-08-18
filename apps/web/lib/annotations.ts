@@ -1,5 +1,5 @@
 /**
- * Chart annotations — single source of truth for the dated events
+ * Chart annotations. Single source of truth for the dated events
  * (governance votes, depegs, oracle / parameter changes) that time-series
  * charts call out as dashed vertical reference lines.
  *
@@ -23,7 +23,7 @@
 import annotationsJson from '@/content/annotations.json';
 
 export interface ChartAnnotation {
-  /** Stable id — used as React key + URL fragment for sharing. Lowercase kebab. */
+  /** Stable id. Used as React key + URL fragment for sharing. Lowercase kebab. */
   id: string;
   /** Unix seconds. */
   timestamp: number;
@@ -42,7 +42,7 @@ interface AnnotationsFile {
 
 const file = annotationsJson as unknown as AnnotationsFile;
 
-/** Pure helper — for SSR / non-React callers. */
+/** Pure helper. For SSR / non-React callers. */
 export function getAnnotations(chartKey: string): ChartAnnotation[] {
   return (file.events ?? [])
     .filter((e) => e.chartKeys.includes(chartKey))

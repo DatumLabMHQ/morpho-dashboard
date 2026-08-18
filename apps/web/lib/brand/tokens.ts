@@ -2,49 +2,50 @@
 // Extracted from the Lending Intelligence Terminal at
 // https://lending-intelligence-terminal.vercel.app/ via Playwright on 2026-05-26
 // (see branding/extracted-tokens.json). Two sibling products under the Datum
-// Labs brand — these tokens are the source of truth so they stay consistent.
+// Labs brand. These tokens are the source of truth so they stay consistent.
 //
-// Aesthetic: Bloomberg-style terminal — dark, JetBrains Mono throughout, dense
-// information layout, vivid 8-color chart palette, ALL-CAPS small-caps headers
-// with wide letter-spacing.
+// Aesthetic: Datum Labs terminal. Near-black surfaces (#0B0D11), an ORANGE
+// (#FF8155) primary accent, JetBrains Mono throughout, dense information
+// layout, ALL-CAPS small-caps headers with wide letter-spacing. Exact match to
+// the Lending Intelligence Terminal at datumlab.xyz/lending-terminal.
 
 export const tokens = {
   colors: {
-    // Surfaces
-    background: '#0b0d11',         // page bg — near-black with cool tint
-    surface: '#14171d',            // card / panel bg
-    surfaceHover: '#1b1f27',
-    panelHeader: '#1a1d24',
-    border: 'hsla(0, 0%, 100%, 0.08)',
-    borderBright: 'hsla(0, 0%, 100%, 0.16)',
-    hoverOverlay: 'hsla(0, 0%, 100%, 0.04)',
+    // Surfaces — exact match to the Lending Intelligence Terminal dark theme.
+    background: '#0B0D11',         // page bg. Near-black
+    surface: '#14171D',            // card / panel bg
+    surfaceHover: '#1B1F27',
+    panelHeader: '#1A1D24',
+    border: 'rgba(255, 255, 255, 0.08)',
+    borderBright: 'rgba(255, 255, 255, 0.16)',
+    hoverOverlay: 'rgba(255, 255, 255, 0.04)',
 
     // Text
-    textPrimary: '#e5e7eb',
-    textSecondary: '#c8ccd6',
-    textMuted: '#8b92a1',
+    textPrimary: '#E5E7EB',
+    textSecondary: '#C8CCD6',
+    textMuted: '#8B92A1',
 
-    // Accents (orange is the primary brand accent — same as terminal)
-    accent: '#ff8155',
-    accentSecondary: '#b97aff',
-    accentBlue: '#6b85ff',
-    accentCyan: '#38bdf8',
-    accentYellow: '#fbbf24',
+    // Accents — ORANGE is the primary brand accent (matches the terminal)
+    accent: '#FF8155',
+    accentSecondary: '#B97AFF',
+    accentBlue: '#6B85FF',
+    accentCyan: '#38BDF8',
+    accentYellow: '#FBBF24',
 
     // Semantic
-    positive: '#34d399',           // success / up
-    negative: '#f26b68',           // danger / down
+    positive: '#34D399',           // success / up
+    negative: '#F26B68',           // danger / down
 
-    // Chart palette — display order from the Lending Terminal
+    // Chart palette — Lending Terminal dark family (blue-led series, orange #6).
     chart: [
-      '#6b85ff', // 1 blue
-      '#34d399', // 2 green
-      '#fbbf24', // 3 yellow
-      '#b97aff', // 4 purple
-      '#38bdf8', // 5 cyan
-      '#ff8155', // 6 orange
-      '#f472b6', // 7 pink
-      '#818cf8', // 8 indigo
+      '#6B85FF', // 1 blue
+      '#34D399', // 2 green
+      '#FBBF24', // 3 yellow
+      '#B97AFF', // 4 purple
+      '#38BDF8', // 5 cyan
+      '#FF8155', // 6 orange (brand accent)
+      '#F472B6', // 7 pink
+      '#818CF8', // 8 indigo
     ] as const,
 
     // Tooltip / overlay
@@ -53,20 +54,19 @@ export const tokens = {
   },
 
   typography: {
-    // JetBrains Mono everywhere — including headings, KPI values, table cells.
-    // The Lending Terminal uses Mono as its sans equivalent for the dense
-    // tabular look. We follow.
-    fontFamilySans: '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
-    fontFamilyMono: '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
+    // JetBrains Mono for everything — the terminal face. CSS var injected by
+    // next/font in app/layout.tsx (--font-jetbrains).
+    fontFamilySans: 'var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace',
+    fontFamilyMono: 'var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace',
     scale: {
-      // Small caps headers + dense body. Sizes mirror what the terminal uses.
-      h1: '13px',                 // section header, all-caps, letter-spaced
-      h2: '11px',                 // sub-section
-      h3: '10px',                 // tertiary
-      kpiValue: '24px',
-      body: '13px',
-      small: '11px',
-      tiny: '10px',
+      // Slight bump toward the lending terminal's airier scale (+1-2px).
+      h1: '14px',                 // section header, all-caps, letter-spaced
+      h2: '12px',                 // sub-section
+      h3: '11px',                 // tertiary
+      kpiValue: '26px',
+      body: '14px',
+      small: '12px',
+      tiny: '11px',
     },
     weights: {
       regular: 400,

@@ -1,5 +1,5 @@
 /**
- * AsOfFooter — small "data as of X · source: Y" footer rendered at the
+ * AsOfFooter. Small "data as of X · source: Y" footer rendered at the
  * bottom of every page. Server component (no client JS for the formatter).
  *
  * Ported from the Lending Intelligence Terminal. Differences from the LIT
@@ -8,10 +8,12 @@
  * data and never needs to change client-side.
  */
 
+import Link from 'next/link';
+
 interface Props {
   /** ISO timestamp string or unix seconds. */
   fetchedAt: string | number | Date;
-  /** Source attribution, e.g. "Morpho Blue GraphQL + DefiLlama Yields". */
+  /** Source attribution, e.g. "Morpho GraphQL + DefiLlama Yields". */
   source: string;
   /** Optional one-liner appended after the source. */
   note?: string;
@@ -49,6 +51,8 @@ export function AsOfFooter({ fetchedAt, source, note }: Props) {
           </span>
         </>
       )}
+      <span className="mx-2 text-text-muted/50">·</span>
+      Full methodology: <Link href="/methodology" className="text-accent hover:underline">/methodology</Link>
     </div>
   );
 }

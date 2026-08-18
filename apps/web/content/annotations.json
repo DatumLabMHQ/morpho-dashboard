@@ -1,5 +1,5 @@
 {
-  "_comment": "Chart annotations — dated events surfaced on time-series charts as dashed vertical reference lines + short labels. Authored as a flat list; each event tags which charts it belongs on via `chartKeys`. Standard keys correspond to time-series charts in this codebase. Add events as the research surfaces them.",
+  "_comment": "Chart annotations. Dated events surfaced on time-series charts as dashed vertical reference lines + short labels. Authored as a flat list; each event tags which charts it belongs on via `chartKeys`. Standard keys correspond to time-series charts in this codebase. Add events as the research surfaces them.",
   "events": [
     {
       "id": "morpho-blue-launch",

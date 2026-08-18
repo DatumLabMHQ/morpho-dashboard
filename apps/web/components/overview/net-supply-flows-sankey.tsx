@@ -39,7 +39,7 @@ export function NetSupplyFlowsSankey({ byKey }: Props) {
 
   // Self-managed tooltip: Recharts' built-in Sankey tooltip doesn't fire once
   // we supply custom node + link renderers, so we wire hover ourselves for
-  // BOTH the nodes (bars) and the links (ribbons — what users actually point
+  // BOTH the nodes (bars) and the links (ribbons. What users actually point
   // at). Positions are computed relative to the wrapper.
   const showTip = (title: string, value: string, valColor: string, e: React.MouseEvent) => {
     const rect = wrapRef.current?.getBoundingClientRect();
@@ -164,7 +164,7 @@ export function NetSupplyFlowsSankey({ byKey }: Props) {
 }
 
 // Custom link (ribbon) renderer: colored by side (green inflow, red outflow),
-// semi-opaque with a soft glow, and hoverable — the ribbons are the big
+// semi-opaque with a soft glow, and hoverable. The ribbons are the big
 // target users actually point at, so this is where the tooltip must fire.
 interface LinkProps {
   sourceX?: number; targetX?: number; sourceY?: number; targetY?: number;
@@ -182,7 +182,7 @@ function SankeyLink(props: LinkProps) {
   } = props;
   if (!payload) return null;
 
-  // Recharts may hand back source/target as indices or as node objects —
+  // Recharts may hand back source/target as indices or as node objects . 
   // resolve to the node either way.
   const resolve = (v: number | SankeyNodeData | undefined): SankeyNodeData | undefined =>
     typeof v === 'number' ? nodes[v] : v;
@@ -249,7 +249,7 @@ function SankeyNode(props: NodeProps) {
   );
 
   // Component (middle) nodes: name + signed net ABOVE the bar (avoids
-  // overlapping the flows). Asset nodes: name + value beside the bar —
+  // overlapping the flows). Asset nodes: name + value beside the bar . 
   // inflow to the left, outflow to the right. Labels are non-interactive so
   // the hit area underneath captures hover.
   if (payload.kind === 'component') {

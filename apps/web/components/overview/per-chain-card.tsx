@@ -88,12 +88,12 @@ export function PerChainCardTile({ card, colorIndex }: Props) {
       <Row label="Total Deposits">{fmtUsd(card.deposits, { compact: true })}</Row>
       <Row label="TVL">{fmtUsd(card.tvl, { compact: true })}</Row>
       <Row label="Borrows">{fmtUsd(card.borrows, { compact: true })}</Row>
-      <Row label="Utilization">{card.utilization == null ? '—' : `${(card.utilization * 100).toFixed(1)}%`}</Row>
+      <Row label="Utilization">{card.utilization == null ? 'N/A' : `${(card.utilization * 100).toFixed(1)}%`}</Row>
       <Row label="Fees 7d">{fmtUsd(card.fees7d, { compact: true })}</Row>
       <Row label="Revenue 30d">{fmtUsd(card.revenue30d, { compact: true })}</Row>
       <Row label="Net Deposits 30d" color={netColor}>
         {card.netDeposits30d == null
-          ? '—'
+          ? 'N/A'
           : `${card.netDeposits30d >= 0 ? '+' : '−'}${fmtUsd(Math.abs(card.netDeposits30d), { compact: true })}`}
       </Row>
     </Link>

@@ -73,7 +73,7 @@ export function ClassShareChart({ data }: Props) {
             formatter={(v: unknown, name: unknown) => {
               const n = typeof v === 'number' ? v : null;
               const label = CATEGORY_LABEL[String(name)] ?? String(name);
-              return [n == null ? '—' : `${(n * 100).toFixed(1)}%`, label];
+              return [n == null ? 'N/A' : `${(n * 100).toFixed(1)}%`, label];
             }}
             contentStyle={{
               background: tokens.colors.tooltipBg,

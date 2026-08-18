@@ -80,7 +80,7 @@ export function ChainMixHeatmap({ data }: Props) {
                           {fmtUsd(v, { compact: true })}
                         </span>
                       ) : (
-                        <span className="text-text-muted">—</span>
+                        <span className="text-text-muted">N/A</span>
                       )}
                     </td>
                   );

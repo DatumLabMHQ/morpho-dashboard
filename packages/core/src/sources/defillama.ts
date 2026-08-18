@@ -57,6 +57,13 @@ export interface LlamaYieldPool {
   apyBase: number | null;
   apyReward: number | null;
   underlyingTokens: string[] | null;
+  // Lending pools also carry current borrow-side rates and supply/borrow USD
+  // on the /pools list (not only on the per-pool /chart). Reading these avoids
+  // a per-pool chart fetch (which blows the Worker subrequest cap).
+  apyBaseBorrow?: number | null;
+  apyRewardBorrow?: number | null;
+  totalSupplyUsd?: number | null;
+  totalBorrowUsd?: number | null;
 }
 
 export interface LlamaYieldPoolsResponse {

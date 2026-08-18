@@ -51,7 +51,7 @@ export function CuratorTvlChainChart({ data, chains }: Props) {
             formatter={(v: unknown, name: unknown) => {
               const n = typeof v === 'number' ? v : null;
               const ch = chains.find((c) => c.slug === String(name));
-              return [n == null ? '—' : fmtUsd(n), ch?.name ?? String(name)];
+              return [n == null ? 'N/A' : fmtUsd(n), ch?.name ?? String(name)];
             }}
             contentStyle={{
               background: tokens.colors.tooltipBg,

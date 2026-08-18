@@ -1,5 +1,5 @@
 /**
- * PageProvenance — convenience wrapper that renders the standard footer
+ * PageProvenance. Convenience wrapper that renders the standard footer
  * block for every page: optional methodology card, then citation block,
  * then "data as of X · source: Y" line.
  *

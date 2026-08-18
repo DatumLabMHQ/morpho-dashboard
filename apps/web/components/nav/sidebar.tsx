@@ -18,8 +18,7 @@ const SURFACES: Surface[] = [
   { href: '/vaults',     label: 'Vaults' },
   { href: '/markets',    label: 'Markets' },
   { href: '/assets',     label: 'Assets' },
-  { href: '/rates',      label: 'Rates' },
-  { href: '/lab',        label: 'Lab' },
+  { href: '/methodology', label: 'Methodology' },
 ];
 
 export function Sidebar() {

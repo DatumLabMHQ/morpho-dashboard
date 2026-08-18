@@ -76,7 +76,7 @@ export function ShareByChainChart({ data, chains, reportMode = false }: Props) {
           formatter={(v: unknown, name: unknown) => {
             const n = typeof v === 'number' && Number.isFinite(v) ? v : null;
             const chain = chains.find((c) => c.chainSlug === String(name));
-            return [n == null ? '—' : `${(n * 100).toFixed(1)}%`, chain?.chainName ?? String(name)];
+            return [n == null ? 'N/A' : `${(n * 100).toFixed(1)}%`, chain?.chainName ?? String(name)];
           }}
           contentStyle={{
             background: tokens.colors.tooltipBg,

@@ -128,15 +128,15 @@ export function TopMarketsTable({ byPeriod, chainColorIndex }: Props) {
                     <td className="px-2 py-2">
                       <span className="inline-flex items-center gap-1.5 uppercase tracking-header-medium text-text-secondary">
                         <span className="inline-block size-2 rounded-sm" style={{ background: dot }} />
-                        {m.chainName ?? m.chainSlug ?? '—'}
+                        {m.chainName ?? m.chainSlug ?? 'N/A'}
                       </span>
                     </td>
                     <td className="px-2 py-2 text-right text-text-primary">{fmtUsd(m.supplyUsd, { compact: true })}</td>
                     <td className="px-2 py-2 text-right text-text-secondary">{fmtUsd(m.liquidityUsd, { compact: true })}</td>
                     <td className="px-2 py-2 text-right text-text-secondary">{fmtUsd(m.borrowUsd, { compact: true })}</td>
-                    <td className="px-2 py-2 text-right text-text-muted">{m.utilization == null ? '—' : `${(m.utilization * 100).toFixed(1)}%`}</td>
-                    <td className="px-2 py-2 text-right text-positive">{m.supplyApy == null ? '—' : `${(m.supplyApy * 100).toFixed(2)}%`}</td>
-                    <td className="px-2 py-2 text-right text-text-secondary">{m.borrowApy == null ? '—' : `${(m.borrowApy * 100).toFixed(2)}%`}</td>
+                    <td className="px-2 py-2 text-right text-text-muted">{m.utilization == null ? 'N/A' : `${(m.utilization * 100).toFixed(1)}%`}</td>
+                    <td className="px-2 py-2 text-right text-positive">{m.supplyApy == null ? 'N/A' : `${(m.supplyApy * 100).toFixed(2)}%`}</td>
+                    <td className="px-2 py-2 text-right text-text-secondary">{m.borrowApy == null ? 'N/A' : `${(m.borrowApy * 100).toFixed(2)}%`}</td>
                     <td className="px-2 py-2">
                       <span className="block h-2 rounded-sm" style={{ width: `${barPct}%`, background: dot, opacity: 0.7 }} />
                     </td>

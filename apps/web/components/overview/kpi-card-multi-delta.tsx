@@ -14,7 +14,7 @@ import { Area, AreaChart, ResponsiveContainer } from 'recharts';
 import { fmtUsd } from '@/lib/format';
 import type { KpiCardData } from '@/lib/queries/overview';
 
-// Icon registry — the page passes a stable string key (server→client props
+// Icon registry. The page passes a stable string key (server→client props
 // can't carry a function/component across the RSC boundary, so we resolve the
 // lucide component here, inside the client island).
 export type KpiIconKey =
@@ -40,16 +40,20 @@ interface Props {
 }
 
 const fmtMain = (data: KpiCardData): string => {
-  if (data.value == null) return '—';
+  if (data.value == null) return 'N/A';
   if (data.display === 'usd') return fmtUsd(data.value, { compact: true });
+  if (data.display === 'bps') return `${Math.round(data.value * 10000)} bps`;
+  if (data.display === 'count') return Math.round(data.value).toLocaleString();
   return `${(data.value * 100).toFixed(2)}%`;
 };
 
-const fmtDelta = (kind: 'usd' | 'pp' | 'pct', value: number | null): string => {
-  if (value == null) return '—';
+const fmtDelta = (kind: 'usd' | 'pp' | 'pct' | 'bps' | 'count', value: number | null): string => {
+  if (value == null) return 'N/A';
   const sign = value >= 0 ? '▲' : '▼';
   if (kind === 'usd') return `${sign}${fmtUsd(Math.abs(value), { compact: true })}`;
   if (kind === 'pp') return `${sign} ${Math.abs(value).toFixed(2)} pp`;
+  if (kind === 'bps') return `${sign} ${Math.round(Math.abs(value * 10000))} bps`;
+  if (kind === 'count') return `${sign} ${Math.round(Math.abs(value)).toLocaleString()}`;
   return `${sign} ${Math.abs(value * 100).toFixed(1)}%`;
 };
 

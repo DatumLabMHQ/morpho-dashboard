@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * ChartCard — uniform shell for every chart on every page.
+ * ChartCard. Uniform shell for every chart on every page.
  *
  * Layout (ported from the LIT chart-card pattern):
  *   ┌─────────────────────────────────────────────────────────────┐
@@ -14,13 +14,13 @@
  *   └─────────────────────────────────────────────────────────────┘
  *
  * Slots:
- *   - title      — uppercase, tracking-[0.1em], font-weight 700, 11px.
- *   - subtitle   — optional one-liner.
- *   - methodology (text + source OR methodologyKey) — ⓘ next to title.
- *   - timeToggle — { selected, onChange, options? } when time-bucketed.
- *   - actions: PNG / copy link / expand — always present.
- *   - footer     — optional ReactNode rendered below the body (legend etc.).
- *   - csvFilename / csvContent — back-compat CSV export button (alongside
+ *   - title. Uppercase, tracking-[0.1em], font-weight 700, 11px.
+ *   - subtitle. Optional one-liner.
+ *   - methodology (text + source OR methodologyKey) . ⓘ next to title.
+ *   - timeToggle: { selected, onChange, options? } when time-bucketed.
+ *   - actions: PNG / copy link / expand. Always present.
+ *   - footer. Optional ReactNode rendered below the body (legend etc.).
+ *   - csvFilename / csvContent. Back-compat CSV export button (alongside
  *     PNG). Server-pre-computed string per the existing dashboard pattern.
  */
 
@@ -53,11 +53,14 @@ interface TimeToggleSpec {
 interface Props {
   title: string;
   subtitle?: string;
+  /** Optional DOM id for deep-linking. A URL like `/chains/base#active-loans-share`
+   *  scrolls to (and lands below the sticky nav of) this card. */
+  anchorId?: string;
   methodology?: MethodologyProps;
   timeToggle?: TimeToggleSpec;
   /** Optional CSV export (kept for backwards compat with ChartFrame's UX). */
   csv?: CsvSpec;
-  /** Optional content below the chart body — legend chips, footnotes, etc. */
+  /** Optional content below the chart body. Legend chips, footnotes, etc. */
   footer?: React.ReactNode;
   /** Optional extra controls in the header (e.g. an inline tab switcher).
    *  Rendered between the time toggle and the actions. */
@@ -69,6 +72,7 @@ interface Props {
 export function ChartCard({
   title,
   subtitle,
+  anchorId,
   methodology,
   timeToggle,
   footer,
@@ -76,7 +80,7 @@ export function ChartCard({
   children,
 }: Props) {
   // Note: `csv` prop is still accepted for back-compat with ChartFrame call
-  // sites but no longer rendered — chart actions are limited to screenshot +
+  // sites but no longer rendered. Chart actions are limited to screenshot +
   // expand per design.
   const cardRef = useRef<HTMLElement>(null);
 
@@ -84,7 +88,8 @@ export function ChartCard({
   return (
     <section
       ref={cardRef}
-      className="tui-card relative flex flex-col"
+      id={anchorId}
+      className="tui-card relative flex flex-col scroll-mt-24"
       data-chart-card
     >
       {/* Header */}

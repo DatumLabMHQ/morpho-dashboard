@@ -6,7 +6,7 @@
  * /chains per-chain stacks, etc.
  *
  * `slug` matches the DefiLlama protocol slug exactly (it's what the worker
- * uses to fetch /protocol/<slug>). `brand` is the brand family — Aave V2 and
+ * uses to fetch /protocol/<slug>). `brand` is the brand family. Aave V2 and
  * Aave V3 share `aave` so the comparison chart can group them when the
  * "Collapse legacy versions" toggle is on. `legacy: true` means superseded
  * by a current version under the same brand.
@@ -34,6 +34,7 @@ export const LENDING_PROTOCOLS = {
     { slug: 'compound-v2',   label: 'Compound V2',   brand: 'compound', legacy: true  },
     { slug: 'fluid-lending', label: 'Fluid',         brand: 'fluid',    legacy: false },
     { slug: 'euler-v2',      label: 'Euler V2',      brand: 'euler',    legacy: false },
+    { slug: 'moonwell-lending', label: 'Moonwell',   brand: 'moonwell', legacy: false },
   ] as const satisfies readonly ProtocolMeta[],
   cdp: [
     { slug: 'sky-lending', label: 'Sky',        brand: 'sky',     legacy: false },
@@ -42,7 +43,7 @@ export const LENDING_PROTOCOLS = {
   ] as const satisfies readonly ProtocolMeta[],
 } as const;
 
-// Flat list of every slug — convenient for filter predicates.
+// Flat list of every slug. Convenient for filter predicates.
 export const ALL_LENDING_SLUGS: readonly string[] = [
   ...LENDING_PROTOCOLS.overcollateralized.map((p) => p.slug),
   ...LENDING_PROTOCOLS.cdp.map((p) => p.slug),
@@ -51,13 +52,14 @@ export const ALL_LENDING_SLUGS: readonly string[] = [
 // Brand → hex. Two shades per brand so v2+v3 can share a hue but stay
 // distinguishable. Aligned with the chart palette in lib/brand/tokens.ts.
 export const BRAND_COLORS: Record<string, { primary: string; legacy: string }> = {
-  morpho:   { primary: '#FF8155', legacy: '#FFA585' }, // accent orange
+  morpho:   { primary: '#FF8155', legacy: '#FFA585' }, // brand orange (subject)
   aave:     { primary: '#B97AFF', legacy: '#D5B0FF' }, // purple
   spark:    { primary: '#FBBF24', legacy: '#FDD877' }, // yellow
   compound: { primary: '#34D399', legacy: '#7BE8C2' }, // green
   fluid:    { primary: '#38BDF8', legacy: '#7AD8FA' }, // cyan
-  euler:    { primary: '#6B85FF', legacy: '#9AAEFF' }, // blue
-  sky:      { primary: '#F472B6', legacy: '#FAA5D2' }, // pink
+  euler:    { primary: '#6B85FF', legacy: '#A5B4FF' }, // blue
+  moonwell: { primary: '#F472B6', legacy: '#FAA5D2' }, // magenta-pink
+  sky:      { primary: '#FB7185', legacy: '#FDA4AF' }, // rose
   liquity:  { primary: '#818CF8', legacy: '#ABB4FA' }, // indigo
 };
 

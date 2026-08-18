@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * ChartFrame — kept as a thin backwards-compat shim around the new ChartCard.
+ * ChartFrame. Kept as a thin backwards-compat shim around the new ChartCard.
  *
  * Existing pages built before the Phase 2 chart-shell port use this name with
  * an older prop shape (title, subtitle, csvFilename, csvContent, pngFilename,
@@ -18,17 +18,19 @@ import { ChartCard } from '@/components/chart-card';
 interface Props {
   title: string;
   subtitle?: string;
+  /** Optional DOM id for deep-linking to this chart (e.g. `#active-loans-share`). */
+  anchorId?: string;
   csvFilename: string;
   /** Pre-computed CSV string (server-side). */
   csvContent: string;
-  /** Ignored — PNG filename is now derived from the title. Accepted to keep
+  /** Ignored. PNG filename is now derived from the title. Accepted to keep
    *  the prop type compatible with older call sites. */
   pngFilename?: string;
   children: React.ReactNode;
   /** Optional right-side controls (e.g. an inline tab switcher). */
   rightControls?: React.ReactNode;
   /** Optional methodology copy. Either pass `methodologyKey` (looked up in
-   *  content/methodology.json — Phase 3) or inline `text` / `source`. */
+   *  content/methodology.json. Phase 3) or inline `text` / `source`. */
   methodologyKey?: string;
   methodologyText?: string;
   methodologySource?: string;
@@ -37,9 +39,10 @@ interface Props {
 export function ChartFrame({
   title,
   subtitle,
+  anchorId,
   csvFilename,
   csvContent,
-  // pngFilename intentionally unused — kept in the type for back-compat.
+  // pngFilename intentionally unused. Kept in the type for back-compat.
   children,
   rightControls,
   methodologyKey,
@@ -55,6 +58,7 @@ export function ChartFrame({
     <ChartCard
       title={title}
       subtitle={subtitle}
+      anchorId={anchorId}
       methodology={methodology}
       csv={{ filename: csvFilename, content: csvContent }}
       rightControls={rightControls}

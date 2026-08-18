@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * ChartAnnotations — drop-in <ReferenceLine> overlay for Recharts time-series.
+ * ChartAnnotations. Drop-in <ReferenceLine> overlay for Recharts time-series.
  *
  * Each annotation renders as a dashed vertical line at its bucketed
  * timestamp, with a short label rendered above the chart. Used for marking
@@ -16,7 +16,7 @@
  *     <ChartAnnotations events={events} xKey="date" />
  *   </LineChart>
  *
- * `xKey` is the date field on each data point — the annotation x is mapped
+ * `xKey` is the date field on each data point. The annotation x is mapped
  * to the same shape (ISO date string by default; pass `unix` if data uses
  * unix-seconds numbers).
  *

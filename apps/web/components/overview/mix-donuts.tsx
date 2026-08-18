@@ -10,6 +10,8 @@ import type { AssetSlice, MixDonuts as MixData, MixPeriod } from '@/lib/queries/
 interface Props {
   /** Pre-fetched donut data per period so the toggle is instant. */
   byPeriod: Record<MixPeriod, MixData>;
+  /** Render only one side (for separate side-by-side cards). Omit for both. */
+  only?: 'collateral' | 'borrow';
 }
 
 const PERIODS: { value: MixPeriod; label: string }[] = [
@@ -74,7 +76,7 @@ function Donut({ title, slices, total }: { title: string; slices: AssetSlice[]; 
         {title}
       </h3>
       <div className="flex items-center gap-5">
-        {/* Donut — hollow center, on-hover tooltip only. */}
+        {/* Donut. Hollow center, on-hover tooltip only. */}
         <div className="relative shrink-0" style={{ width: 168, height: 168 }}>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
@@ -100,7 +102,7 @@ function Donut({ title, slices, total }: { title: string; slices: AssetSlice[]; 
           </ResponsiveContainer>
         </div>
 
-        {/* Side legend — TOTAL header, then dot · symbol · share% rows
+        {/* Side legend. TOTAL header, then dot · symbol · share% rows
             (mirrors the Lending Terminal layout). */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between border-b border-card-border pb-1.5 mb-1">
@@ -133,8 +135,9 @@ function Donut({ title, slices, total }: { title: string; slices: AssetSlice[]; 
   );
 }
 
-/** Paired collateral + borrow donuts with a shared period toggle. */
-export function MixDonuts({ byPeriod }: Props) {
+/** Collateral and/or borrow donuts with a period toggle. With `only` set,
+ *  renders a single donut (used for two separate side-by-side cards). */
+export function MixDonuts({ byPeriod, only }: Props) {
   const [period, setPeriod] = useState<MixPeriod>('current');
   const d = byPeriod[period] ?? byPeriod.current;
 
@@ -167,10 +170,16 @@ export function MixDonuts({ byPeriod }: Props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <Donut title="Collateral mix · deposit base by asset" slices={d.collateralMix} total={d.collateralTotal} />
-        <Donut title="Borrow mix · debt by asset" slices={d.borrowMix} total={d.borrowTotal} />
-      </div>
+      {only === 'collateral' ? (
+        <Donut title="Deposit base by asset" slices={d.collateralMix} total={d.collateralTotal} />
+      ) : only === 'borrow' ? (
+        <Donut title="Debt by asset" slices={d.borrowMix} total={d.borrowTotal} />
+      ) : (
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <Donut title="Collateral mix · deposit base by asset" slices={d.collateralMix} total={d.collateralTotal} />
+          <Donut title="Borrow mix · debt by asset" slices={d.borrowMix} total={d.borrowTotal} />
+        </div>
+      )}
     </div>
   );
 }

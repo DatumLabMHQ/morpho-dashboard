@@ -10,7 +10,7 @@
 //
 // Revenue formula (the user pinned this): tvl × pre-fee APY × fee_bps/10000.
 // vault_state_daily.apy IS pre-fee (we extracted that from the Morpho GraphQL
-// MarketState.apy field — see packages/core/src/sources/morpho-graphql.ts).
+// MarketState.apy field. See packages/core/src/sources/morpho-graphql.ts).
 // fee_bps is the vault's current performance fee.
 //
 // Allocation-level data is empty until /backfill/tick?job=vault-allocations
@@ -18,24 +18,29 @@
 
 import { unstable_cache } from 'next/cache';
 
+import { type AssetClass, ASSET_CLASS_ORDER, categorizeAsset } from '../assets/asset-class.js';
+import { tokens } from '../brand/tokens.js';
 import { getDb } from '../db.js';
 
-const CACHE_VERSION = 'curators-v1';
+const CACHE_VERSION = 'curators-v2';
 const TTL = 900;
 
-// Inline asset-class categorizer (shared with chain-detail.ts; duplicated here
-// to keep the file self-contained for the query layer).
-const ASSET_CATEGORY_CASE = `
-  CASE
-    WHEN UPPER(sym) IN ('USDC','USDT','DAI','USDS','SUSDS','USDE','SUSDE','GHO','FRAX','CRVUSD','USR','PYUSD','LUSD','FDUSD','TUSD','MIM','BUIDL') THEN 'stablecoin'
-    WHEN UPPER(sym) IN ('WSTETH','WEETH','EZETH','RSETH','SWETH','RETH','METH','OSETH','LSETH','PUFETH') THEN 'lst'
-    WHEN UPPER(sym) LIKE 'PT-%' OR UPPER(sym) IN ('UNIETH') THEN 'lrt'
-    WHEN UPPER(sym) IN ('WBTC','CBBTC','TBTC','LBTC','SBTC','RBTC','MBTC','SOLVBTC','EBTC','WBTC18') THEN 'btc'
-    WHEN UPPER(sym) IN ('WETH','ETH') THEN 'eth'
-    WHEN UPPER(sym) LIKE '%RWA%' OR UPPER(sym) IN ('USTB','OUSG','UDUSD','SBUIDL') THEN 'rwa'
-    ELSE 'other'
-  END
-`;
+// Degenerate-IRM vaults (APY > 100%) report bad data that distorts every
+// AUM-weighted figure; every query below inlines the literal filter
+//   (s.apy IS NULL OR s.apy <= 1.0) AND (s.net_apy IS NULL OR s.net_apy <= 1.0)
+// to exclude them (methodology locked in Part A. Same as bad-oracle markets on
+// /chains). Inlined literally because neon parameter-binds interpolated strings.
+
+function growth30d(now: number, ago: number | null): number | null {
+  if (ago == null || ago <= 0) return null;
+  return (now - ago) / ago;
+}
+/** AUM doubling time in days: 30 × ln2 / ln(1+rate). null if shrinking. */
+function doublingTimeDays(rate: number | null): number | null {
+  if (rate == null || rate <= 0) return null;
+  const d = (Math.log(2) / Math.log(1 + rate)) * 30;
+  return Number.isFinite(d) && d > 0 ? d : null;
+}
 
 // ---------- Types ----------
 
@@ -47,8 +52,8 @@ export interface DirectoryHeader {
 }
 
 export interface ConcentrationStats {
-  cr3: number;          // 0..1 — top-3 share of curated TVL
-  cr5: number;          // 0..1 — top-5 share
+  cr3: number;          // 0..1. Top-3 share of curated TVL
+  cr5: number;          // 0..1. Top-5 share
   hhi: number;          // 0..10000 (DOJ scale; >2500 is "highly concentrated")
   hhiLabel: 'unconcentrated' | 'moderately concentrated' | 'highly concentrated';
 }
@@ -124,7 +129,9 @@ export interface CuratorKpis {
   vaultCount: number;
   vaultsAdded30d: number;
   weightedNetApy: number | null;
-  estAnnualRevenueUsd: number;
+  estAnnualRevenueUsd: number;          // curator fees (annualized)
+  borrowInterestCapturedUsd: number;    // Σ tvl × pre-fee APY (annualized)
+  feeTakeRate: number | null;           // fees ÷ borrow interest captured
 }
 
 export interface CuratorTvlChainPoint {
@@ -143,6 +150,47 @@ export interface CuratorVaultRow {
   netApy: number | null;
   feeBps: number | null;
   utilization: number | null;
+}
+
+export interface CuratorVaultPerfRow {
+  chainId: number;
+  chainSlug: string | null;
+  address: string;
+  name: string | null;
+  assetSymbol: string | null;
+  aumUsd: number;
+  netApy: number | null;
+  feeBps: number | null;
+  feeTakeRate: number | null;        // per-vault = fee fraction
+  borrowInterestUsd: number;         // tvl × pre-fee APY
+  aum30dDeltaPct: number | null;
+}
+
+export interface LoanBookAssetRow {
+  assetSymbol: string;
+  aumUsd: number;
+  vaultCount: number;
+  chainCount: number;
+}
+
+export interface FeeStructurePoint {
+  name: string;
+  feeBps: number | null;
+  tvlUsd: number;
+  netApy: number | null;
+}
+
+export interface VsSectorRow {
+  chainSlug: string;
+  chainName: string;
+  curatorNetApy: number | null;
+  sectorNetApy: number | null;
+  spreadBps: number | null;
+}
+
+export interface WeeklyInflowPoint {
+  weekStart: string;
+  netChangeUsd: number;
 }
 
 export interface CuratorAssetMixSlice {
@@ -259,6 +307,9 @@ export const getDirectoryKpis = unstable_cache(
           WHERE x.chain_id = v.chain_id AND x.vault_address = v.address
           ORDER BY x.snapshot_date DESC LIMIT 1
         ) s ON TRUE
+        -- Exclude degenerate-IRM vaults entirely (APY > 100% ⇒ bad data that
+        -- also distorts AUM-weighted figures). Consistent with /chains.
+        WHERE (s.apy IS NULL OR s.apy <= 1.0) AND (s.net_apy IS NULL OR s.net_apy <= 1.0)
       ),
       per_curator AS (
         SELECT curator_id,
@@ -274,8 +325,12 @@ export const getDirectoryKpis = unstable_cache(
         FROM per_curator pc LEFT JOIN morpho_.curators c ON c.id = pc.curator_id
       ),
       revenue AS (
+        -- APY clamped at 100% per vault: degenerate-IRM markets (e.g. some
+        -- CLEARSTAR allocations) report 1000%+ APYs that otherwise compound the
+        -- est-revenue sum into the billions. LEAST wraps the effective pre-fee
+        -- APY regardless of whether it comes from apy or net_apy/(1-fee).
         SELECT SUM(GREATEST(
-          COALESCE(tvl, 0) * COALESCE(apy, net_apy / NULLIF(1 - (fee_bps::numeric / 10000), 0)) * (fee_bps::numeric / 10000),
+          COALESCE(tvl, 0) * LEAST(COALESCE(apy, net_apy / NULLIF(1 - (fee_bps::numeric / 10000), 0)), 1.0) * (fee_bps::numeric / 10000),
           0
         ))::float8 AS total_rev
         FROM latest_vault
@@ -335,6 +390,7 @@ export const getCuratorTable = unstable_cache(
           ORDER BY x.snapshot_date DESC LIMIT 1
         ) s ON TRUE
         WHERE v.curator_id IS NOT NULL
+          AND (s.apy IS NULL OR s.apy <= 1.0) AND (s.net_apy IS NULL OR s.net_apy <= 1.0)
       ),
       tvl_90d_ago AS (
         SELECT v.curator_id, SUM(x.total_assets_usd)::float8 AS tvl_90
@@ -355,10 +411,10 @@ export const getCuratorTable = unstable_cache(
           COUNT(*)::int                                       AS vault_count,
           COUNT(DISTINCT chain_id)::int                       AS chain_count,
           CASE WHEN SUM(tvl) > 0
-               THEN (SUM(tvl * net_apy) / SUM(tvl))::float8
+               THEN (SUM(tvl * LEAST(net_apy, 1.0)) / SUM(tvl))::float8
                ELSE NULL END                                   AS weighted_net_apy,
           SUM(GREATEST(
-            COALESCE(tvl, 0) * COALESCE(apy, net_apy / NULLIF(1 - (fee_bps::numeric / 10000), 0)) * (fee_bps::numeric / 10000),
+            COALESCE(tvl, 0) * LEAST(COALESCE(apy, net_apy / NULLIF(1 - (fee_bps::numeric / 10000), 0)), 1.0) * (fee_bps::numeric / 10000),
             0
           ))::float8                                          AS revenue
         FROM latest_vault
@@ -411,7 +467,7 @@ export const getCuratorShareStack = unstable_cache(
   async (scope: 'all' | 'ethereum'): Promise<ShareStackSlice[]> => {
     const sql = getDb();
     const palette = [
-      '#6b85ff','#34d399','#fbbf24','#b97aff','#38bdf8','#ff8155','#f472b6','#818cf8','#10b981','#a78bfa',
+      '#6b85ff','#34d399','#fbbf24','#b97aff','#38bdf8','#74adff','#f472b6','#818cf8','#10b981','#a78bfa',
     ];
     const chainId = scope === 'ethereum' ? 1 : null;
     const rows = (await sql`
@@ -491,28 +547,36 @@ export const getCuratorReachMatrix = unstable_cache(
       LIMIT ${curatorN}
     `) as { id: string; name: string | null }[];
 
+    const curatorIds = topCurators.map((c) => c.id);
+
+    // Columns = the chains where the displayed (top-N) curators actually operate,
+    // ranked by those curators' summed TVL. Ranking by the displayed curators
+    // rather than by global vault TVL guarantees every column carries at least
+    // one value: a chain only appears if a shown curator has TVL there. This is
+    // what drops Worldchain, whose vaults are all unattributed (curator_id NULL)
+    // and therefore can never populate a named-curator row.
     const topChains = (await sql`
-      SELECT DISTINCT ON (slug)
-        slug AS chain_slug, name AS chain_name, chain_id
-      FROM morpho_.chains
-      WHERE chain_id IN (
-        SELECT chain_id FROM (
-          SELECT v.chain_id, SUM(s.total_assets_usd) AS tvl
-          FROM morpho_.vaults v
-          JOIN LATERAL (
-            SELECT total_assets_usd FROM morpho_.vault_state_daily x
-            WHERE x.chain_id = v.chain_id AND x.vault_address = v.address
-            ORDER BY x.snapshot_date DESC LIMIT 1
-          ) s ON TRUE
-          GROUP BY v.chain_id
-          ORDER BY tvl DESC NULLS LAST
-          LIMIT ${chainN}
-        ) x
+      WITH lv AS (
+        SELECT v.chain_id, s.total_assets_usd::float8 AS tvl
+        FROM morpho_.vaults v
+        JOIN LATERAL (
+          SELECT total_assets_usd FROM morpho_.vault_state_daily x
+          WHERE x.chain_id = v.chain_id AND x.vault_address = v.address
+          ORDER BY x.snapshot_date DESC LIMIT 1
+        ) s ON TRUE
+        WHERE v.curator_id = ANY(${curatorIds}::text[]) AND s.total_assets_usd > 0
+      ),
+      ranked AS (
+        SELECT chain_id, SUM(tvl) AS tvl
+        FROM lv GROUP BY chain_id
+        ORDER BY tvl DESC NULLS LAST
+        LIMIT ${chainN}
       )
-      ORDER BY slug
+      SELECT ch.slug AS chain_slug, ch.name AS chain_name, ch.chain_id
+      FROM ranked r JOIN morpho_.chains ch ON ch.chain_id = r.chain_id
+      ORDER BY r.tvl DESC
     `) as { chain_slug: string; chain_name: string; chain_id: number }[];
 
-    const curatorIds = topCurators.map((c) => c.id);
     const chainIds = topChains.map((c) => c.chain_id);
     const cellsRaw = (await sql`
       WITH latest_vault AS (
@@ -561,7 +625,7 @@ export const getCuratorRevenueLeaderboard = unstable_cache(
     const sql = getDb();
     // Attribution: fee_recipient_address → curator_addresses → curator_id.
     // Vaults whose fee_recipient doesn't match a known curator address get
-    // bucketed into UNATTRIBUTED. Revenue isn't dropped — surfaced separately.
+    // bucketed into UNATTRIBUTED. Revenue isn't dropped. Surfaced separately.
     const rows = (await sql`
       WITH latest_vault AS (
         SELECT v.chain_id, v.address, v.fee_recipient_address,
@@ -576,6 +640,7 @@ export const getCuratorRevenueLeaderboard = unstable_cache(
           WHERE x.chain_id = v.chain_id AND x.vault_address = v.address
           ORDER BY x.snapshot_date DESC LIMIT 1
         ) s ON TRUE
+        WHERE (s.apy IS NULL OR s.apy <= 1.0) AND (s.net_apy IS NULL OR s.net_apy <= 1.0)
       ),
       attributed AS (
         SELECT
@@ -593,7 +658,7 @@ export const getCuratorRevenueLeaderboard = unstable_cache(
       with_rev AS (
         SELECT revenue_curator,
                GREATEST(
-                 tvl * COALESCE(apy, net_apy / NULLIF(1 - (fee_bps::numeric / 10000), 0)) * (fee_bps::numeric / 10000),
+                 tvl * LEAST(COALESCE(apy, net_apy / NULLIF(1 - (fee_bps::numeric / 10000), 0)), 1.0) * (fee_bps::numeric / 10000),
                  0
                )::float8 AS rev
         FROM attributed
@@ -718,6 +783,7 @@ export const getCuratorKpis = unstable_cache(
           ORDER BY x.snapshot_date DESC LIMIT 1
         ) s ON TRUE
         WHERE v.curator_id = ${c.id}
+          AND (s.apy IS NULL OR s.apy <= 1.0) AND (s.net_apy IS NULL OR s.net_apy <= 1.0)
       ),
       v30 AS (
         SELECT SUM(x.total_assets_usd)::float8 AS tvl
@@ -770,19 +836,27 @@ export const getCuratorKpis = unstable_cache(
         ) AS wapy,
         (
           SELECT SUM(GREATEST(
-            tvl * COALESCE(apy, net_apy / NULLIF(1 - (fee_bps::numeric / 10000), 0)) * (fee_bps::numeric / 10000),
+            tvl * LEAST(COALESCE(apy, net_apy / NULLIF(1 - (fee_bps::numeric / 10000), 0)), 1.0) * (fee_bps::numeric / 10000),
             0
           ))::float8
           FROM latest_vault WHERE tvl > 0 AND fee_bps > 0
-        ) AS rev
+        ) AS rev,
+        (
+          SELECT SUM(GREATEST(
+            tvl * LEAST(COALESCE(apy, net_apy / NULLIF(1 - (fee_bps::numeric / 10000), 0)), 1.0),
+            0
+          ))::float8
+          FROM latest_vault WHERE tvl > 0
+        ) AS borrow_interest
     `) as {
       tvl: number | null; vc: number;
       tvl_30: number | null; grand: number | null; grand_30: number | null;
-      added: number; wapy: number | null; rev: number | null;
+      added: number; wapy: number | null; rev: number | null; borrow_interest: number | null;
     }[];
     const r = rows[0]!;
     const share = r.tvl && r.grand ? r.tvl / r.grand : 0;
     const share30 = r.tvl_30 != null && r.grand_30 ? r.tvl_30 / r.grand_30 : null;
+    const bi = r.borrow_interest ?? 0;
     return {
       totalTvlUsd: r.tvl ?? 0,
       tvl30dAgoUsd: r.tvl_30,
@@ -792,6 +866,8 @@ export const getCuratorKpis = unstable_cache(
       vaultsAdded30d: r.added,
       weightedNetApy: r.wapy,
       estAnnualRevenueUsd: r.rev ?? 0,
+      borrowInterestCapturedUsd: bi,
+      feeTakeRate: bi > 0 ? (r.rev ?? 0) / bi : null,
     };
   },
   [CACHE_VERSION, 'kpis-detail'],
@@ -803,7 +879,7 @@ export const getCuratorTvlByChain = unstable_cache(
     const sql = getDb();
     const c = await resolveCurator(slug);
     if (!c) return { chains: [], series: [] };
-    const palette = ['#6b85ff','#34d399','#fbbf24','#b97aff','#38bdf8','#ff8155','#f472b6','#818cf8'];
+    const palette = ['#6b85ff','#34d399','#fbbf24','#b97aff','#38bdf8','#74adff','#f472b6','#818cf8'];
     const rows = (await sql`
       WITH vaults_of_curator AS (
         SELECT chain_id, address FROM morpho_.vaults WHERE curator_id = ${c.id}
@@ -890,36 +966,33 @@ export const getCuratorAllocationByAssetClass = unstable_cache(
     const sql = getDb();
     const c = await resolveCurator(slug);
     if (!c) return [];
-    // Proxy: aggregate vault TVL by the vault's underlying asset class.
-    // (True allocation-level mix needs vault_allocations_daily — currently empty.)
+    // Proxy: aggregate vault TVL by the vault's underlying asset class. Bucketing
+    // is done in JS (categorizeAsset). The SQL CASE approach is unusable because
+    // neon parameter-binds interpolated strings. (True allocation-level mix needs
+    // vault_allocations_daily. Currently empty.) Degenerate vaults excluded.
     const rows = (await sql`
-      WITH vault_latest AS (
-        SELECT v.asset_symbol AS sym, s.total_assets_usd::float8 AS tvl
-        FROM morpho_.vaults v
-        JOIN LATERAL (
-          SELECT total_assets_usd FROM morpho_.vault_state_daily x
-          WHERE x.chain_id = v.chain_id AND x.vault_address = v.address
-          ORDER BY x.snapshot_date DESC LIMIT 1
-        ) s ON TRUE
-        WHERE v.curator_id = ${c.id} AND s.total_assets_usd > 0
-      ),
-      with_cat AS (
-        SELECT sym, ${ASSET_CATEGORY_CASE} AS category, tvl FROM vault_latest
-      ),
-      by_cat AS (
-        SELECT category, SUM(tvl)::float8 AS tvl FROM with_cat GROUP BY category
-      ),
-      top_sym AS (
-        SELECT DISTINCT ON (category)
-          category, sym, SUM(tvl) OVER (PARTITION BY category, sym)::float8 AS sym_tvl
-        FROM with_cat
-        ORDER BY category, sym_tvl DESC
-      )
-      SELECT b.category, b.tvl, t.sym AS top_symbol
-      FROM by_cat b LEFT JOIN top_sym t USING (category)
-      ORDER BY b.tvl DESC
-    `) as { category: string; tvl: number; top_symbol: string | null }[];
-    return rows.map((r) => ({ category: r.category, tvlUsd: r.tvl, topSymbol: r.top_symbol }));
+      SELECT v.asset_symbol AS sym, s.total_assets_usd::float8 AS tvl
+      FROM morpho_.vaults v
+      JOIN LATERAL (
+        SELECT total_assets_usd, apy, net_apy FROM morpho_.vault_state_daily x
+        WHERE x.chain_id = v.chain_id AND x.vault_address = v.address
+        ORDER BY x.snapshot_date DESC LIMIT 1
+      ) s ON TRUE
+      WHERE v.curator_id = ${c.id} AND s.total_assets_usd > 0
+        AND (s.apy IS NULL OR s.apy <= 1.0) AND (s.net_apy IS NULL OR s.net_apy <= 1.0)
+    `) as { sym: string | null; tvl: number }[];
+
+    const byCat = new Map<string, number>();
+    const topSym = new Map<string, { sym: string; usd: number }>();
+    for (const r of rows) {
+      const cat = categorizeAsset(r.sym);
+      byCat.set(cat, (byCat.get(cat) ?? 0) + r.tvl);
+      const cur = topSym.get(cat);
+      if (!cur || r.tvl > cur.usd) topSym.set(cat, { sym: r.sym ?? 'N/A', usd: r.tvl });
+    }
+    return [...byCat.entries()]
+      .map(([category, tvlUsd]) => ({ category, tvlUsd, topSymbol: topSym.get(category)?.sym ?? null }))
+      .sort((a, b) => b.tvlUsd - a.tvlUsd);
   },
   [CACHE_VERSION, 'allocation-class'],
   { revalidate: TTL, tags: ['curators'] },
@@ -965,5 +1038,563 @@ export const getCuratorPerformanceVsMarket = unstable_cache(
     }));
   },
   [CACHE_VERSION, 'perf-vs-market'],
+  { revalidate: TTL, tags: ['curators'] },
+);
+
+// ===========================================================================
+// PART B. Asset-manager framing for the /curators redesign.
+//
+// Metric vocabulary (canonical):
+//   AUM                        = Σ vault TVL (total_assets_usd)
+//   Borrow Interest Captured   = Σ tvl × pre-fee APY (annualized)
+//   Curator Fees (annualized)  = Σ tvl × pre-fee APY × fee
+//   Lender Yield Delivered     = Σ tvl × net_apy
+//   Fee Take Rate              = curator fees ÷ borrow interest captured
+//   Net APY Delivered          = AUM-weighted net_apy
+// Degenerate-IRM vaults (APY > 100%) are EXCLUDED from every aggregation.
+// ===========================================================================
+
+// Pre-fee APY clamped at 100%, derived from apy or net_apy/(1-fee). Inlined
+// literally in each query (neon param-binds interpolated strings, so it can't
+// be a `${const}`):
+//   LEAST(COALESCE(apy, net_apy / NULLIF(1 - (fee_bps::numeric / 10000), 0)), 1.0)
+const LB_CACHE = 'curators-assetmgr-v2';
+
+export interface CuratorEconomics {
+  curatorId: string;
+  name: string;
+  aum: number;
+  borrowInterestCaptured: number;   // annualized
+  curatorFees: number;              // annualized
+  feeTakeRate: number | null;       // fees ÷ borrow interest captured
+  netApyDelivered: number | null;   // AUM-weighted net_apy
+  vaultCount: number;
+  chainCount: number;
+  aum30dAgo: number | null;
+  aum30dDeltaPct: number | null;
+  doublingTimeDays: number | null;
+}
+
+export const getCuratorEconomics = unstable_cache(
+  async (): Promise<CuratorEconomics[]> => {
+    const sql = getDb();
+    const rows = (await sql`
+      WITH lv AS (
+        SELECT v.curator_id, v.chain_id,
+               s.total_assets_usd::float8 AS tvl, s.apy::float8 AS apy, s.net_apy::float8 AS net_apy, s.fee_bps
+        FROM morpho_.vaults v
+        JOIN LATERAL (
+          SELECT total_assets_usd, apy, net_apy, fee_bps FROM morpho_.vault_state_daily x
+          WHERE x.chain_id = v.chain_id AND x.vault_address = v.address ORDER BY x.snapshot_date DESC LIMIT 1
+        ) s ON TRUE
+        WHERE v.curator_id IS NOT NULL
+          AND (s.apy IS NULL OR s.apy <= 1.0) AND (s.net_apy IS NULL OR s.net_apy <= 1.0)
+      ),
+      lv30 AS (
+        SELECT v.curator_id, x.total_assets_usd::float8 AS tvl
+        FROM morpho_.vaults v
+        LEFT JOIN LATERAL (
+          SELECT total_assets_usd FROM morpho_.vault_state_daily y
+          WHERE y.chain_id = v.chain_id AND y.vault_address = v.address
+            AND y.snapshot_date <= CURRENT_DATE - INTERVAL '30 days'
+          ORDER BY y.snapshot_date DESC LIMIT 1
+        ) x ON TRUE
+        WHERE v.curator_id IS NOT NULL
+      ),
+      prev AS (SELECT curator_id, SUM(tvl)::float8 AS aum30 FROM lv30 GROUP BY curator_id),
+      agg AS (
+        SELECT curator_id,
+          SUM(tvl)::float8 AS aum,
+          COUNT(*)::int AS vaults,
+          COUNT(DISTINCT chain_id)::int AS chains,
+          CASE WHEN SUM(tvl) > 0 THEN (SUM(tvl * net_apy) / SUM(tvl))::float8 ELSE NULL END AS net_apy,
+          SUM(GREATEST(tvl * LEAST(COALESCE(apy, net_apy / NULLIF(1 - (fee_bps::numeric / 10000), 0)), 1.0), 0))::float8 AS borrow_interest,
+          SUM(GREATEST(tvl * LEAST(COALESCE(apy, net_apy / NULLIF(1 - (fee_bps::numeric / 10000), 0)), 1.0) * (fee_bps::numeric / 10000), 0))::float8 AS fees
+        FROM lv WHERE tvl > 0 GROUP BY curator_id
+      )
+      SELECT a.curator_id, c.name, a.aum, a.vaults, a.chains, a.net_apy, a.borrow_interest, a.fees, prev.aum30
+      FROM agg a LEFT JOIN morpho_.curators c ON c.id = a.curator_id
+      LEFT JOIN prev ON prev.curator_id = a.curator_id
+      ORDER BY a.aum DESC
+    `) as {
+      curator_id: string; name: string | null; aum: number; vaults: number; chains: number;
+      net_apy: number | null; borrow_interest: number; fees: number; aum30: number | null;
+    }[];
+    return rows.map((r) => {
+      const delta = growth30d(r.aum, r.aum30);
+      return {
+        curatorId: r.curator_id,
+        name: r.name ?? r.curator_id,
+        aum: r.aum,
+        borrowInterestCaptured: r.borrow_interest,
+        curatorFees: r.fees,
+        feeTakeRate: r.borrow_interest > 0 ? r.fees / r.borrow_interest : null,
+        netApyDelivered: r.net_apy,
+        vaultCount: r.vaults,
+        chainCount: r.chains,
+        aum30dAgo: r.aum30,
+        aum30dDeltaPct: delta,
+        doublingTimeDays: doublingTimeDays(delta),
+      };
+    });
+  },
+  [LB_CACHE, 'economics'],
+  { revalidate: TTL, tags: ['curators'] },
+);
+
+// ---------- Structural identity (AUM by asset class, JS-categorized) ----------
+
+export interface CuratorClassCell { assetClass: AssetClass; usd: number; pct: number; }
+export interface CuratorStructuralRow {
+  curatorId: string; name: string; aum: number;
+  byClass: Record<AssetClass, CuratorClassCell>;
+  dominantClass: AssetClass; dominantPct: number;
+}
+
+async function loadCuratorAssetRows(sql: ReturnType<typeof getDb>): Promise<{ curator_id: string; symbol: string | null; tvl: number }[]> {
+  return (await sql`
+    SELECT v.curator_id, v.asset_symbol AS symbol, s.total_assets_usd::float8 AS tvl
+    FROM morpho_.vaults v
+    JOIN LATERAL (
+      SELECT total_assets_usd, apy, net_apy FROM morpho_.vault_state_daily x
+      WHERE x.chain_id = v.chain_id AND x.vault_address = v.address ORDER BY x.snapshot_date DESC LIMIT 1
+    ) s ON TRUE
+    WHERE v.curator_id IS NOT NULL AND s.total_assets_usd > 0
+      AND (s.apy IS NULL OR s.apy <= 1.0) AND (s.net_apy IS NULL OR s.net_apy <= 1.0)
+  `) as { curator_id: string; symbol: string | null; tvl: number }[];
+}
+
+function emptyClassRec(): Record<AssetClass, CuratorClassCell> {
+  const r = {} as Record<AssetClass, CuratorClassCell>;
+  for (const c of ASSET_CLASS_ORDER) r[c] = { assetClass: c, usd: 0, pct: 0 };
+  return r;
+}
+
+export const getCuratorStructuralIdentityMatrix = unstable_cache(
+  async (topN = 15): Promise<CuratorStructuralRow[]> => {
+    const sql = getDb();
+    const [assetRows, econ] = await Promise.all([loadCuratorAssetRows(sql), getCuratorEconomics()]);
+    const nameById = new Map(econ.map((e) => [e.curatorId, e.name] as const));
+    const byCurator = new Map<string, Record<AssetClass, CuratorClassCell>>();
+    for (const r of assetRows) {
+      if (!byCurator.has(r.curator_id)) byCurator.set(r.curator_id, emptyClassRec());
+      byCurator.get(r.curator_id)![categorizeAsset(r.symbol)].usd += r.tvl;
+    }
+    const out: CuratorStructuralRow[] = [];
+    for (const e of econ.slice(0, topN)) {
+      const rec = byCurator.get(e.curatorId) ?? emptyClassRec();
+      const total = ASSET_CLASS_ORDER.reduce((s, c) => s + rec[c].usd, 0);
+      let dominantClass: AssetClass = 'other'; let dominantPct = 0;
+      for (const c of ASSET_CLASS_ORDER) {
+        rec[c].pct = total > 0 ? rec[c].usd / total : 0;
+        if (rec[c].pct > dominantPct) { dominantPct = rec[c].pct; dominantClass = c; }
+      }
+      out.push({ curatorId: e.curatorId, name: nameById.get(e.curatorId) ?? e.curatorId, aum: e.aum, byClass: rec, dominantClass, dominantPct });
+    }
+    return out;
+  },
+  [LB_CACHE, 'structural'],
+  { revalidate: TTL, tags: ['curators'] },
+);
+
+// ---------- Headline KPIs (6 superlatives) ----------
+
+export interface CuratorSuperlative { key: string; label: string; curatorId: string | null; curatorName: string | null; caption: string; }
+
+export const getCuratorsHeadlineKpis = unstable_cache(
+  async (): Promise<CuratorSuperlative[]> => {
+    const econ = await getCuratorEconomics();
+    if (econ.length === 0) return [];
+    const totalAum = econ.reduce((s, e) => s + e.aum, 0);
+    const usd = (v: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 2 }).format(v);
+    const pick = (val: (e: CuratorEconomics) => number | null) => {
+      let best: CuratorEconomics | null = null; let bv = -Infinity;
+      for (const e of econ) { const v = val(e); if (v != null && Number.isFinite(v) && v > bv) { bv = v; best = e; } }
+      return best;
+    };
+    const largest = econ[0]!;
+    const topInterest = pick((e) => e.borrowInterestCaptured);
+    // take rate / net apy: require non-trivial AUM so a dust curator can't win
+    const material = econ.filter((e) => e.aum >= 5_000_000);
+    const topTake = (material.length ? material : econ).reduce<CuratorEconomics | null>((b, e) => (e.feeTakeRate != null && (b == null || (e.feeTakeRate ?? 0) > (b.feeTakeRate ?? 0)) ? e : b), null);
+    const topNet = (material.length ? material : econ).reduce<CuratorEconomics | null>((b, e) => (e.netApyDelivered != null && (b == null || (e.netApyDelivered ?? 0) > (b.netApyDelivered ?? 0)) ? e : b), null);
+    const topChains = pick((e) => e.chainCount);
+    const fastest = pick((e) => e.aum30dDeltaPct);
+    const card = (key: string, label: string, e: CuratorEconomics | null, caption: string): CuratorSuperlative =>
+      ({ key, label, curatorId: e?.curatorId ?? null, curatorName: e?.name ?? null, caption });
+    return [
+      card('largest-aum', 'Largest AUM', largest, `${usd(largest.aum)} · ${(totalAum > 0 ? (largest.aum / totalAum) * 100 : 0).toFixed(1)}% of Morpho-wide`),
+      card('highest-borrow-interest', 'Highest Borrow Interest Captured', topInterest, topInterest ? `${usd(topInterest.borrowInterestCaptured)} annualized` : 'N/A'),
+      card('highest-take-rate', 'Highest Fee Take Rate', topTake, topTake?.feeTakeRate != null ? `${(topTake.feeTakeRate * 100).toFixed(1)}% of interest kept` : 'N/A'),
+      card('highest-net-apy', 'Highest Net APY Delivered', topNet, topNet?.netApyDelivered != null ? `${(topNet.netApyDelivered * 100).toFixed(2)}% to depositors` : 'N/A'),
+      card('most-multichain', 'Most Multi-Chain', topChains, topChains ? `${topChains.chainCount} chains` : 'N/A'),
+      card('fastest-growth', 'Fastest AUM Growth 30d', fastest, fastest?.aum30dDeltaPct != null ? `+${(fastest.aum30dDeltaPct * 100).toFixed(1)}% over 30d` : 'no baseline'),
+    ];
+  },
+  [LB_CACHE, 'headline-kpis'],
+  { revalidate: TTL, tags: ['curators'] },
+);
+
+// ---------- Performance scatter ----------
+
+export interface CuratorScatterPoint {
+  curatorId: string; name: string; feeTakeRate: number; netApyDelivered: number; aum: number; assetClass: AssetClass; label: boolean;
+}
+
+export const getCuratorPerformanceScatter = unstable_cache(
+  async (): Promise<CuratorScatterPoint[]> => {
+    const [econ, structural] = await Promise.all([getCuratorEconomics(), getCuratorStructuralIdentityMatrix(50)]);
+    const classById = new Map(structural.map((s) => [s.curatorId, s.dominantClass] as const));
+    const labelIds = new Set(econ.slice(0, 5).map((e) => e.curatorId));
+    return econ
+      .filter((e) => e.feeTakeRate != null && e.netApyDelivered != null && e.aum > 0)
+      .map((e) => ({
+        curatorId: e.curatorId, name: e.name,
+        feeTakeRate: e.feeTakeRate!, netApyDelivered: e.netApyDelivered!, aum: e.aum,
+        assetClass: classById.get(e.curatorId) ?? 'other', label: labelIds.has(e.curatorId),
+      }));
+  },
+  [LB_CACHE, 'scatter'],
+  { revalidate: TTL, tags: ['curators'] },
+);
+
+// ---------- Table with borrow interest ----------
+
+export interface CuratorTableExtRow extends CuratorEconomics { sharePct: number; }
+
+export const getCuratorTableWithBorrowInterest = unstable_cache(
+  async (): Promise<CuratorTableExtRow[]> => {
+    const econ = await getCuratorEconomics();
+    const total = econ.reduce((s, e) => s + e.aum, 0);
+    return econ.map((e) => ({ ...e, sharePct: total > 0 ? e.aum / total : 0 }));
+  },
+  [LB_CACHE, 'table-ext'],
+  { revalidate: TTL, tags: ['curators'] },
+);
+
+// ---------- AUM-by-curator time series (4 toggles) ----------
+
+export type CuratorMetricKey = 'AUM' | 'BORROW_INTEREST' | 'CURATOR_FEES' | 'NET_APY';
+export interface CuratorSeriesPoint { date: string; [k: string]: string | number | null; }
+export interface CuratorSeriesPayload {
+  defaultMetric: CuratorMetricKey;
+  topCurators: { id: string; name: string; color: string }[];
+  byMetric: Record<CuratorMetricKey, CuratorSeriesPoint[]>;
+  leader: { name: string; aum: number; pct: number; delta30d: number | null } | null;
+  // First date with reliable per-vault fee capture. The CURATOR_FEES series is
+  // clipped to >= this date: before it, vault_state_daily.fee_bps was not
+  // recorded (Morpho's API serves only the current fee, not a fee history), so
+  // earlier "fees" would read as a misleading flat ~0. null if never reliable.
+  feeReliableFrom: string | null;
+}
+
+const TOP_N_CURATORS = 10;
+
+export const getCuratorAumByCuratorSeries = unstable_cache(
+  async (metric: CuratorMetricKey = 'AUM', days = 365): Promise<CuratorSeriesPayload> => {
+    const sql = getDb();
+    const econ = await getCuratorEconomics();
+    if (econ.length === 0) return { defaultMetric: metric, topCurators: [], byMetric: { AUM: [], BORROW_INTEREST: [], CURATOR_FEES: [], NET_APY: [] }, leader: null, feeReliableFrom: null };
+    const top = econ.slice(0, TOP_N_CURATORS);
+    const topIds = new Set(top.map((e) => e.curatorId));
+    const palette = tokens.colors.chart;
+    const topCurators = top.map((e, i) => ({ id: e.curatorId, name: e.name, color: palette[i % palette.length]! }));
+    const nameById = new Map(top.map((e) => [e.curatorId, e.name] as const));
+
+    const rows = (await sql`
+      SELECT s.snapshot_date::text AS date, v.curator_id,
+        SUM(s.total_assets_usd)::float8 AS tvl,
+        SUM(s.total_assets_usd * LEAST(COALESCE(s.apy, s.net_apy / NULLIF(1 - (s.fee_bps::numeric/10000),0)), 1.0))::float8 AS borrow_interest,
+        SUM(s.total_assets_usd * LEAST(COALESCE(s.apy, s.net_apy / NULLIF(1 - (s.fee_bps::numeric/10000),0)), 1.0) * (s.fee_bps::numeric/10000))::float8 AS fees,
+        SUM(s.total_assets_usd * s.net_apy)::float8 AS net_apy_num
+      FROM morpho_.vault_state_daily s
+      JOIN morpho_.vaults v ON v.chain_id = s.chain_id AND v.address = s.vault_address
+      WHERE v.curator_id IS NOT NULL
+        AND s.snapshot_date >= (CURRENT_DATE - (${days} * INTERVAL '1 day'))
+        AND (s.apy IS NULL OR s.apy <= 1.0) AND (s.net_apy IS NULL OR s.net_apy <= 1.0)
+      GROUP BY s.snapshot_date, v.curator_id
+      ORDER BY s.snapshot_date ASC
+    `) as { date: string; curator_id: string; tvl: number | null; borrow_interest: number | null; fees: number | null; net_apy_num: number | null }[];
+
+    const aum = new Map<string, CuratorSeriesPoint>();
+    const intr = new Map<string, CuratorSeriesPoint>();
+    const fees = new Map<string, CuratorSeriesPoint>();
+    const net = new Map<string, CuratorSeriesPoint>();
+    const netW = new Map<string, Record<string, { num: number; den: number }>>();
+    const ens = (m: Map<string, CuratorSeriesPoint>, d: string) => { let p = m.get(d); if (!p) { p = { date: d }; m.set(d, p); } return p; };
+    for (const r of rows) {
+      const inTop = topIds.has(r.curator_id);
+      const key = inTop ? r.curator_id : 'Other';
+      const t = r.tvl ?? 0;
+      const ap = ens(aum, r.date); ap[key] = ((ap[key] as number) ?? 0) + t;
+      const ip = ens(intr, r.date); ip[key] = ((ip[key] as number) ?? 0) + (r.borrow_interest ?? 0);
+      const fp = ens(fees, r.date); fp[key] = ((fp[key] as number) ?? 0) + (r.fees ?? 0);
+      if (inTop) {
+        if (!netW.has(r.date)) netW.set(r.date, {});
+        const w = netW.get(r.date)!;
+        if (!w[r.curator_id]) w[r.curator_id] = { num: 0, den: 0 };
+        w[r.curator_id]!.num += r.net_apy_num ?? 0; w[r.curator_id]!.den += t;
+      }
+    }
+    for (const [date, w] of netW) {
+      const np = ens(net, date);
+      for (const [id, { num, den }] of Object.entries(w)) np[id] = den > 0 ? num / den : null;
+    }
+    const sortD = (m: Map<string, CuratorSeriesPoint>) => [...m.values()].sort((a, b) => (a.date as string).localeCompare(b.date as string));
+    void nameById;
+
+    // Find the first date where per-vault fee capture is reliable (>=50% of
+    // vaults with TVL carry a fee_bps). Before this, fee_bps is essentially
+    // unrecorded, so clip the CURATOR_FEES series to it rather than render a
+    // year of misleading zeros.
+    const covRows = (await sql`
+      WITH cov AS (
+        SELECT snapshot_date,
+          1.0 * COUNT(*) FILTER (WHERE fee_bps IS NOT NULL AND total_assets_usd > 0)
+              / NULLIF(COUNT(*) FILTER (WHERE total_assets_usd > 0), 0) AS p
+        FROM morpho_.vault_state_daily
+        GROUP BY snapshot_date
+      )
+      SELECT MIN(snapshot_date)::text AS d FROM cov WHERE p >= 0.5
+    `) as { d: string | null }[];
+    const feeReliableFrom = covRows[0]?.d ?? null;
+    const feesSorted = sortD(fees);
+    const feesClipped = feeReliableFrom
+      ? feesSorted.filter((p) => (p.date as string) >= feeReliableFrom)
+      : feesSorted;
+
+    const leaderE = top[0]!;
+    return {
+      defaultMetric: metric, topCurators,
+      byMetric: { AUM: sortD(aum), BORROW_INTEREST: sortD(intr), CURATOR_FEES: feesClipped, NET_APY: sortD(net) },
+      leader: { name: leaderE.name, aum: leaderE.aum, pct: econ.reduce((s, e) => s + e.aum, 0) > 0 ? leaderE.aum / econ.reduce((s, e) => s + e.aum, 0) : 0, delta30d: leaderE.aum30dDeltaPct },
+      feeReliableFrom,
+    };
+  },
+  [LB_CACHE, 'aum-series'],
+  { revalidate: TTL, tags: ['curators'] },
+);
+
+// ---------- Revenue leaderboard with take rate ----------
+
+export interface RevenueLeaderboardExtRow extends RevenueLeaderboardRow { feeTakeRate: number | null; }
+
+export const getCuratorRevenueLeaderboardWithTakeRate = unstable_cache(
+  async (n = 5): Promise<RevenueLeaderboardExtRow[]> => {
+    const sql = getDb();
+    const rows = (await sql`
+      WITH latest_vault AS (
+        SELECT v.chain_id, v.address, v.fee_recipient_address,
+               s.total_assets_usd::float8 AS tvl, s.apy::float8 AS apy, s.net_apy::float8 AS net_apy, s.fee_bps
+        FROM morpho_.vaults v
+        JOIN LATERAL (
+          SELECT total_assets_usd, apy, net_apy, fee_bps FROM morpho_.vault_state_daily x
+          WHERE x.chain_id = v.chain_id AND x.vault_address = v.address ORDER BY x.snapshot_date DESC LIMIT 1
+        ) s ON TRUE
+        WHERE (s.apy IS NULL OR s.apy <= 1.0) AND (s.net_apy IS NULL OR s.net_apy <= 1.0)
+      ),
+      attributed AS (
+        SELECT lv.tvl, lv.apy, lv.net_apy, lv.fee_bps,
+          (SELECT ca.curator_id FROM morpho_.curator_addresses ca
+           WHERE LOWER(ca.address) = LOWER(lv.fee_recipient_address) AND (ca.chain_id IS NULL OR ca.chain_id = lv.chain_id) LIMIT 1) AS rc
+        FROM latest_vault lv WHERE lv.tvl > 0 AND lv.fee_bps > 0
+      ),
+      g AS (
+        SELECT rc AS id,
+          SUM(GREATEST(tvl * LEAST(COALESCE(apy, net_apy / NULLIF(1 - (fee_bps::numeric/10000), 0)), 1.0) * (fee_bps::numeric/10000), 0))::float8 AS rev,
+          SUM(GREATEST(tvl * LEAST(COALESCE(apy, net_apy / NULLIF(1 - (fee_bps::numeric/10000), 0)), 1.0), 0))::float8 AS borrow_interest
+        FROM attributed GROUP BY rc
+      ),
+      total AS (SELECT SUM(rev)::float8 AS t FROM g)
+      SELECT g.id, c.name, g.rev, g.borrow_interest, (g.rev / NULLIF((SELECT t FROM total), 0))::float8 AS share
+      FROM g LEFT JOIN morpho_.curators c ON c.id = g.id ORDER BY g.rev DESC NULLS LAST
+    `) as { id: string | null; name: string | null; rev: number; borrow_interest: number; share: number | null }[];
+
+    const named = rows.filter((r) => r.id).slice(0, n).map((r) => ({
+      curatorId: r.id, curatorName: r.name ?? r.id!, estAnnualRevenueUsd: r.rev, sharePct: r.share ?? 0,
+      isUnattributed: false, feeTakeRate: r.borrow_interest > 0 ? r.rev / r.borrow_interest : null,
+    }));
+    const un = rows.find((r) => r.id == null);
+    if (un) named.push({ curatorId: null, curatorName: 'UNATTRIBUTED', estAnnualRevenueUsd: un.rev, sharePct: un.share ?? 0, isUnattributed: true, feeTakeRate: un.borrow_interest > 0 ? un.rev / un.borrow_interest : null });
+    return named;
+  },
+  [LB_CACHE, 'rev-leaderboard-take'],
+  { revalidate: TTL, tags: ['curators'] },
+);
+
+// ===========================================================================
+// PART C . /curators/[slug] enrichment helpers.
+// ===========================================================================
+
+export const getCuratorVaultPerformance = unstable_cache(
+  async (slug: string): Promise<CuratorVaultPerfRow[]> => {
+    const sql = getDb();
+    const c = await resolveCurator(slug);
+    if (!c) return [];
+    const rows = (await sql`
+      WITH lv AS (
+        SELECT v.chain_id, ch.slug AS chain_slug, v.address, v.name, v.asset_symbol,
+               s.total_assets_usd::float8 AS tvl, s.apy::float8 AS apy, s.net_apy::float8 AS net_apy, s.fee_bps
+        FROM morpho_.vaults v
+        LEFT JOIN morpho_.chains ch ON ch.chain_id = v.chain_id
+        JOIN LATERAL (
+          SELECT total_assets_usd, apy, net_apy, fee_bps FROM morpho_.vault_state_daily x
+          WHERE x.chain_id = v.chain_id AND x.vault_address = v.address ORDER BY x.snapshot_date DESC LIMIT 1
+        ) s ON TRUE
+        WHERE v.curator_id = ${c.id}
+          AND (s.apy IS NULL OR s.apy <= 1.0) AND (s.net_apy IS NULL OR s.net_apy <= 1.0)
+      ),
+      v30 AS (
+        SELECT v.chain_id, v.address, x.total_assets_usd::float8 AS tvl30
+        FROM morpho_.vaults v
+        LEFT JOIN LATERAL (
+          SELECT total_assets_usd FROM morpho_.vault_state_daily y
+          WHERE y.chain_id = v.chain_id AND y.vault_address = v.address
+            AND y.snapshot_date <= CURRENT_DATE - INTERVAL '30 days'
+          ORDER BY y.snapshot_date DESC LIMIT 1
+        ) x ON TRUE
+        WHERE v.curator_id = ${c.id}
+      )
+      SELECT lv.chain_id, lv.chain_slug, lv.address, lv.name, lv.asset_symbol,
+             lv.tvl, lv.net_apy, lv.fee_bps,
+             GREATEST(lv.tvl * LEAST(COALESCE(lv.apy, lv.net_apy / NULLIF(1 - (lv.fee_bps::numeric/10000),0)), 1.0), 0)::float8 AS borrow_interest,
+             v30.tvl30
+      FROM lv LEFT JOIN v30 ON v30.chain_id = lv.chain_id AND v30.address = lv.address
+      WHERE lv.tvl > 0
+      ORDER BY lv.tvl DESC NULLS LAST
+    `) as { chain_id: number; chain_slug: string | null; address: string; name: string | null; asset_symbol: string | null; tvl: number; net_apy: number | null; fee_bps: number | null; borrow_interest: number; tvl30: number | null }[];
+    return rows.map((r) => ({
+      chainId: r.chain_id, chainSlug: r.chain_slug, address: r.address, name: r.name, assetSymbol: r.asset_symbol,
+      aumUsd: r.tvl, netApy: r.net_apy, feeBps: r.fee_bps,
+      feeTakeRate: r.fee_bps != null ? r.fee_bps / 10000 : null,
+      borrowInterestUsd: r.borrow_interest,
+      aum30dDeltaPct: r.tvl30 != null && r.tvl30 > 0 ? (r.tvl - r.tvl30) / r.tvl30 : null,
+    }));
+  },
+  [LB_CACHE, 'vault-perf'],
+  { revalidate: TTL, tags: ['curators'] },
+);
+
+export const getCuratorLoanBookComposition = unstable_cache(
+  async (slug: string): Promise<LoanBookAssetRow[]> => {
+    const sql = getDb();
+    const c = await resolveCurator(slug);
+    if (!c) return [];
+    const rows = (await sql`
+      SELECT v.asset_symbol AS sym, v.chain_id, s.total_assets_usd::float8 AS tvl
+      FROM morpho_.vaults v
+      JOIN LATERAL (
+        SELECT total_assets_usd, apy, net_apy FROM morpho_.vault_state_daily x
+        WHERE x.chain_id = v.chain_id AND x.vault_address = v.address ORDER BY x.snapshot_date DESC LIMIT 1
+      ) s ON TRUE
+      WHERE v.curator_id = ${c.id} AND s.total_assets_usd > 0
+        AND (s.apy IS NULL OR s.apy <= 1.0) AND (s.net_apy IS NULL OR s.net_apy <= 1.0)
+    `) as { sym: string | null; chain_id: number; tvl: number }[];
+    const agg = new Map<string, { aum: number; vaults: number; chains: Set<number> }>();
+    for (const r of rows) {
+      const k = r.sym ?? 'N/A';
+      if (!agg.has(k)) agg.set(k, { aum: 0, vaults: 0, chains: new Set() });
+      const a = agg.get(k)!; a.aum += r.tvl; a.vaults += 1; a.chains.add(r.chain_id);
+    }
+    return [...agg.entries()]
+      .map(([assetSymbol, a]) => ({ assetSymbol, aumUsd: a.aum, vaultCount: a.vaults, chainCount: a.chains.size }))
+      .sort((x, y) => y.aumUsd - x.aumUsd);
+  },
+  [LB_CACHE, 'loan-book'],
+  { revalidate: TTL, tags: ['curators'] },
+);
+
+export const getCuratorFeeStructure = unstable_cache(
+  async (slug: string): Promise<FeeStructurePoint[]> => {
+    const sql = getDb();
+    const c = await resolveCurator(slug);
+    if (!c) return [];
+    const rows = (await sql`
+      SELECT v.name, s.fee_bps, s.total_assets_usd::float8 AS tvl, s.net_apy::float8 AS net_apy
+      FROM morpho_.vaults v
+      JOIN LATERAL (
+        SELECT total_assets_usd, apy, net_apy, fee_bps FROM morpho_.vault_state_daily x
+        WHERE x.chain_id = v.chain_id AND x.vault_address = v.address ORDER BY x.snapshot_date DESC LIMIT 1
+      ) s ON TRUE
+      WHERE v.curator_id = ${c.id} AND s.total_assets_usd > 0
+        AND (s.apy IS NULL OR s.apy <= 1.0) AND (s.net_apy IS NULL OR s.net_apy <= 1.0)
+      ORDER BY s.total_assets_usd DESC
+    `) as { name: string | null; fee_bps: number | null; tvl: number; net_apy: number | null }[];
+    return rows.map((r) => ({ name: r.name ?? 'N/A', feeBps: r.fee_bps, tvlUsd: r.tvl, netApy: r.net_apy }));
+  },
+  [LB_CACHE, 'fee-structure'],
+  { revalidate: TTL, tags: ['curators'] },
+);
+
+export const getCuratorVsSectorBenchmark = unstable_cache(
+  async (slug: string): Promise<VsSectorRow[]> => {
+    const sql = getDb();
+    const c = await resolveCurator(slug);
+    if (!c) return [];
+    const rows = (await sql`
+      WITH lv AS (
+        SELECT v.curator_id, v.chain_id,
+               s.total_assets_usd::float8 AS tvl, s.net_apy::float8 AS net_apy
+        FROM morpho_.vaults v
+        JOIN LATERAL (
+          SELECT total_assets_usd, apy, net_apy FROM morpho_.vault_state_daily x
+          WHERE x.chain_id = v.chain_id AND x.vault_address = v.address ORDER BY x.snapshot_date DESC LIMIT 1
+        ) s ON TRUE
+        WHERE (s.apy IS NULL OR s.apy <= 1.0) AND (s.net_apy IS NULL OR s.net_apy <= 1.0) AND s.total_assets_usd > 0
+      ),
+      cur AS (
+        SELECT chain_id, CASE WHEN SUM(tvl) > 0 THEN SUM(tvl * net_apy) / SUM(tvl) END::float8 AS net_apy
+        FROM lv WHERE curator_id = ${c.id} GROUP BY chain_id
+      ),
+      sector AS (
+        SELECT chain_id, CASE WHEN SUM(tvl) > 0 THEN SUM(tvl * net_apy) / SUM(tvl) END::float8 AS net_apy
+        FROM lv GROUP BY chain_id
+      )
+      SELECT ch.slug AS chain_slug, ch.name AS chain_name, cur.net_apy AS cur_apy, sector.net_apy AS sec_apy
+      FROM cur JOIN sector USING (chain_id) JOIN morpho_.chains ch ON ch.chain_id = cur.chain_id
+      ORDER BY cur.net_apy DESC NULLS LAST
+    `) as { chain_slug: string; chain_name: string; cur_apy: number | null; sec_apy: number | null }[];
+    return rows.map((r) => ({
+      chainSlug: r.chain_slug, chainName: r.chain_name, curatorNetApy: r.cur_apy, sectorNetApy: r.sec_apy,
+      spreadBps: r.cur_apy != null && r.sec_apy != null ? Math.round((r.cur_apy - r.sec_apy) * 10000) : null,
+    }));
+  },
+  [LB_CACHE, 'vs-sector'],
+  { revalidate: TTL, tags: ['curators'] },
+);
+
+export const getCuratorWeeklyNetInflows = unstable_cache(
+  async (slug: string, weeks = 13): Promise<WeeklyInflowPoint[]> => {
+    const sql = getDb();
+    const c = await resolveCurator(slug);
+    if (!c) return [];
+    // Daily total AUM for the curator over the trailing window (+1 week for the
+    // baseline diff). Bucket to the last observation per ISO week in JS.
+    const days = (weeks + 1) * 7;
+    const rows = (await sql`
+      SELECT s.snapshot_date::text AS date, SUM(s.total_assets_usd)::float8 AS tvl
+      FROM morpho_.vault_state_daily s
+      JOIN morpho_.vaults v ON v.chain_id = s.chain_id AND v.address = s.vault_address
+      WHERE v.curator_id = ${c.id}
+        AND s.snapshot_date >= (CURRENT_DATE - (${days} * INTERVAL '1 day'))
+        AND (s.apy IS NULL OR s.apy <= 1.0) AND (s.net_apy IS NULL OR s.net_apy <= 1.0)
+      GROUP BY s.snapshot_date ORDER BY s.snapshot_date ASC
+    `) as { date: string; tvl: number }[];
+    // last AUM per ISO-week (Monday start)
+    const weekly = new Map<string, number>();
+    for (const r of rows) {
+      const d = new Date(r.date + 'T00:00:00Z');
+      const day = (d.getUTCDay() + 6) % 7; // 0=Mon
+      const monday = new Date(d); monday.setUTCDate(d.getUTCDate() - day);
+      weekly.set(monday.toISOString().slice(0, 10), r.tvl); // later dates overwrite → last in week
+    }
+    const sorted = [...weekly.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    const out: WeeklyInflowPoint[] = [];
+    for (let i = 1; i < sorted.length; i++) {
+      out.push({ weekStart: sorted[i]![0], netChangeUsd: sorted[i]![1] - sorted[i - 1]![1] });
+    }
+    return out.slice(-weeks);
+  },
+  [LB_CACHE, 'weekly-inflows'],
   { revalidate: TTL, tags: ['curators'] },
 );

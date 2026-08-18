@@ -96,14 +96,14 @@ export function CuratorTable({ rows }: Props) {
               <td className="py-2.5 text-right tabular-nums text-text-secondary">{r.vaultCount}</td>
               <td className="py-2.5 text-right tabular-nums text-text-secondary">{r.chainCount}</td>
               <td className="py-2.5 text-right tabular-nums text-positive">
-                {r.weightedNetApy == null ? '—' : `${(r.weightedNetApy * 100).toFixed(2)}%`}
+                {r.weightedNetApy == null ? 'N/A' : `${(r.weightedNetApy * 100).toFixed(2)}%`}
               </td>
               <td className="py-2.5 text-right tabular-nums text-text-primary">
                 {fmtUsd(r.estAnnualRevenueUsd, { compact: true })}
               </td>
               <td className="py-2.5 text-right tabular-nums">
                 {r.delta90dPct == null ? (
-                  <span className="text-text-muted">—</span>
+                  <span className="text-text-muted">N/A</span>
                 ) : (
                   <span className={r.delta90dPct >= 0 ? 'text-positive' : 'text-negative'}>
                     {r.delta90dPct >= 0 ? '+' : ''}{(r.delta90dPct * 100).toFixed(1)}%

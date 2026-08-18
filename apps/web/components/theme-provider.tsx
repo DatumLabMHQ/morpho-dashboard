@@ -9,7 +9,7 @@
  *      `<html data-theme="...">` attribute. The pre-paint inline script in
  *      app/layout.tsx applies the persisted choice before React hydrates,
  *      so there is no light-mode flash on dark-default loads.
- *   2. Expose `useThemeColors()` — a Recharts-friendly object of computed
+ *   2. Expose `useThemeColors()`. A Recharts-friendly object of computed
  *      color values that mirrors the live CSS variables. Components that
  *      cannot read CSS variables directly (Recharts axes, tooltips,
  *      gridlines) read this hook and re-render when the theme toggles.
@@ -72,7 +72,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         const v = window.localStorage.getItem(THEME_STORAGE_KEY);
         if (v === 'light' || v === 'dark') saved = v;
       } catch {
-        // localStorage disabled — stay on default dark.
+        // localStorage disabled. Stay on default dark.
       }
     }
     setTheme(saved);

@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Top navigation bar — matches the Lending Intelligence Terminal pattern.
+ * Top navigation bar. Matches the Lending Intelligence Terminal pattern.
  *
  * Brand block on the left (Datum Labs icon · product label), nav links in
  * the center / right, then a CONNECTED status pill and the theme toggle.
@@ -28,8 +28,7 @@ const NAV_ITEMS: { href: string; label: string }[] = [
   { href: '/vaults',   label: 'Vaults' },
   { href: '/markets',  label: 'Markets' },
   { href: '/assets',   label: 'Assets' },
-  { href: '/rates',    label: 'Rates' },
-  { href: '/lab',      label: 'Lab' },
+  { href: '/methodology', label: 'Methodology' },
 ];
 
 export function TopNav() {
@@ -68,7 +67,7 @@ export function TopNav() {
           </Link>
 
           <div className="flex items-center gap-4">
-            {/* Desktop nav — hidden under md to avoid wrap. */}
+            {/* Desktop nav. Hidden under md to avoid wrap. */}
             <div className="hidden md:flex items-center gap-1">
               {NAV_ITEMS.map((item) => {
                 const active = isActive(item.href);
@@ -79,10 +78,10 @@ export function TopNav() {
                     prefetch
                     className="px-2.5 py-1 text-[10px] uppercase tracking-[0.1em] rounded transition-colors"
                     style={{
-                      color: active ? 'var(--accent-orange)' : 'var(--text-muted)',
+                      color: active ? 'var(--accent)' : 'var(--text-muted)',
                       background: active ? 'rgba(var(--accent-rgb), 0.08)' : 'transparent',
                       borderBottom: active
-                        ? '1px solid var(--accent-orange)'
+                        ? '1px solid var(--accent)'
                         : '1px solid transparent',
                     }}
                   >
@@ -91,18 +90,6 @@ export function TopNav() {
                 );
               })}
             </div>
-
-            {/* CONNECTED status pill — matches the SDK DashboardLayout chrome. */}
-            <span
-              className="inline-flex items-center gap-1.5 text-[10px]"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              <span
-                className="inline-block size-1.5 rounded-full animate-pulse"
-                style={{ background: 'var(--accent-orange)' }}
-              />
-              CONNECTED
-            </span>
 
             <ThemeToggle />
           </div>
@@ -125,7 +112,7 @@ export function TopNav() {
               href={item.href}
               className="px-2.5 py-1 text-[10px] uppercase tracking-[0.1em] rounded whitespace-nowrap transition-colors"
               style={{
-                color: active ? 'var(--accent-orange)' : 'var(--text-muted)',
+                color: active ? 'var(--accent)' : 'var(--text-muted)',
                 background: active ? 'rgba(var(--accent-rgb), 0.08)' : 'transparent',
               }}
             >
