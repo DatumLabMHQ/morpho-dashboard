@@ -2,8 +2,10 @@
 
 Architecture (same as the Lending Terminal):
 
-- **Web app (`apps/web`) -> Vercel.** Plain Next.js, no adapter. Reads from Neon
-  with a read-only role.
+- **Web app (`apps/web`) -> Cloudflare Worker `morpho-terminal`.** Next.js app
+  built with vinext (Vite) and deployed to Workers
+  (`https://morpho-terminal.datumlabs.workers.dev`). Reads from Neon with a
+  read-only role.
 - **Cron / data sync (`apps/worker`) -> Cloudflare Worker.** Already configured
   in `apps/worker/wrangler.toml` (staggered 6h crons). Writes to Neon, so it
   uses a write-capable connection string, not the read-only one.
@@ -45,29 +47,39 @@ RESET ROLE;
 Read-only connection string (from Neon, role = morpho_readonly):
 `postgresql://morpho_readonly:<password>@<host>/<db>?sslmode=require`
 
-## 2. Web app -> Vercel
+## 2. Web app -> Cloudflare Workers (vinext)
 
-Monorepo, so point Vercel at `apps/web`.
+`apps/web` is built with [vinext](https://github.com/cloudflare/vinext) and
+deployed as the Worker `morpho-terminal` on the Datum Labs account
+(`accountId` is pinned in `apps/web/cloudflare.config.ts`). Worker settings
+(name, compatibility flags, assets, Workers Cache for the `revalidate` pages)
+live in `apps/web/cloudflare.config.ts` and `apps/web/vite.config.ts`. This is
+separate from `apps/worker/wrangler.toml`, which only configures the cron
+worker.
 
-Dashboard route: New Project -> import the repo ->
-- Root Directory: `apps/web`
-- Framework preset: Next.js (build `next build`, output `.next`; no adapter)
-- Environment variables:
-  - `DATABASE_URL` = the **morpho_readonly** connection string from step 1
-  - `NEXT_PUBLIC_SITE_URL` = `https://datumlab.xyz` (or the canonical host)
+Secrets (set once per Worker, never committed):
 
-Or via CLI from `apps/web`:
+- `DATABASE_URL` = the **morpho_readonly** connection string from step 1
+
+`NEXT_PUBLIC_SITE_URL` is inlined at build time and defaults to
+`https://datumlab.xyz`; export it before `pnpm build` only to use another host.
+
+From `apps/web`:
 
 ```bash
 cd apps/web
-vercel link
-vercel env add DATABASE_URL production        # paste read-only string
-vercel env add NEXT_PUBLIC_SITE_URL production # https://datumlab.xyz
-vercel --prod
+npx cf auth login                                               # once
+npx cf workers secrets update DATABASE_URL --worker morpho-terminal   # paste read-only string
+pnpm run deploy                                                 # vite build + upload
 ```
 
-Map the canonical path (e.g. `datumlab.xyz/morpho-terminal`) in Vercel domains,
-or via a path rewrite on the apex host, matching the Lending Terminal setup.
+(or `pnpm deploy:web` from the repo root). Local commands: `pnpm dev`
+(vite dev on :3000, runs in workerd), `pnpm build`, `pnpm start` (vite preview
+of the built Worker). `pnpm dev:next` / `pnpm build:next` still run plain
+Next.js. Locally, put `DATABASE_URL=...` in `apps/web/.dev.vars` (gitignored).
+
+Map the canonical path (e.g. `datumlab.xyz/morpho-terminal`) with a Workers
+route or custom domain on the apex zone, matching the Lending Terminal setup.
 
 ## 3. Cron worker -> Cloudflare
 
@@ -87,7 +99,7 @@ scheduled run succeeds (or hit the admin sync endpoint once to seed).
 
 ## 4. Smoke test (production)
 
-On the Vercel URL, confirm:
+On `https://morpho-terminal.datumlabs.workers.dev`, confirm:
 
 - [ ] No 500s on `/`, `/chains`, `/curators`, `/vaults`, `/markets`, `/assets`, `/methodology`
 - [ ] Last sync indicator (top right) shows a recent timestamp

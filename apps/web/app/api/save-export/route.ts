@@ -13,7 +13,7 @@ const EXPORTS_DIR = join(process.cwd(), 'public', 'exports');
 const FILENAME = 'morpho-share-by-chain.png';
 
 export async function POST(req: Request): Promise<Response> {
-  if (process.env.VERCEL === '1' || process.env.NODE_ENV === 'production') {
+  if (process.env.NODE_ENV === 'production') {
     return Response.json({ error: 'save-export disabled in production' }, { status: 403 });
   }
   if ((req.headers.get('content-type') ?? '').indexOf('image/png') === -1) {

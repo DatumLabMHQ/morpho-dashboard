@@ -11,6 +11,7 @@
     "dev:worker": "pnpm --filter @morpho-dashboard/worker dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "schema:apply": "pnpm --filter @morpho-dashboard/db schema:apply"
+    "schema:apply": "pnpm --filter @morpho-dashboard/db schema:apply",
+    "deploy:web": "pnpm --filter @morpho-dashboard/web run deploy"
   }
 }
