@@ -8,7 +8,7 @@ export function getDb(): SqlClient {
     throw new Error(
       'DATABASE_URL is not set. ' +
         'Local: copy apps/web/.env.example to apps/web/.env.local. ' +
-        'Prod: set it in your Vercel project env.',
+        'Prod: set it as a Worker secret (npx cf workers secrets update DATABASE_URL --worker morpho-terminal).',
     );
   }
   return createClient(url);

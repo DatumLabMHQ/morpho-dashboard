@@ -1,5 +1,5 @@
 {
-  "resolvedUrl": "https://lending-intelligence-terminal.vercel.app/",
+  "resolvedUrl": "https://lending-intelligence-terminal.datumlabs.workers.dev/",
   "pageTitle": "Lending Intelligence Terminal · Datum Labs",
   "body": {
     "backgroundColor": "rgb(11, 13, 17)",
@@ -247,7 +247,7 @@
     "rgba(15, 17, 21, 0.18) 0px 12px 32px 0px"
   ],
   "logo": {
-    "src": "https://lending-intelligence-terminal.vercel.app/_next/image?url=%2Fbranding%2Fdatumlabs-icon.png&w=48&q=75",
+    "src": "https://lending-intelligence-terminal.datumlabs.workers.dev/_next/image?url=%2Fbranding%2Fdatumlabs-icon.png&w=48&q=75",
     "outerHTML": "<img alt=\"Datum Labs\" fetchpriority=\"high\" width=\"22\" height=\"22\" decoding=\"async\" data-nimg=\"1\" class=\"rounded-sm\" style=\"color:transparent\" srcset=\"/_next/image?url=%2Fbranding%2Fdatumlabs-icon.png&amp;w=32&amp;q=75 1x, /_next/image?url=%2Fbranding%2Fdatumlabs-icon.png&amp;w=48&amp;q=75 2x\" src=\"/_next/image?url=%2Fbranding%2Fdatumlabs-icon.png&amp;w=48&amp;q=75\">",
     "wordmarkText": "|\nLENDING INTELLIGENCE TERMINAL"
   },

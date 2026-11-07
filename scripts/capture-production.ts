@@ -5,7 +5,7 @@ import { chromium } from 'playwright';
 
 const __d = dirname(fileURLToPath(import.meta.url));
 const BRAND = join(__d, '..', 'branding');
-const BASE = process.env.PROD_URL ?? 'https://morpho-terminal.vercel.app';
+const BASE = process.env.PROD_URL ?? 'https://morpho-terminal.datumlabs.workers.dev';
 
 const PAGES: { route: string; file: string }[] = [
   { route: '/', file: 'production-overview.png' },

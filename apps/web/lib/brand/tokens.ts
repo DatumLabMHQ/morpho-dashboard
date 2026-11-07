@@ -1,6 +1,6 @@
 // Brand tokens for the Morpho Research Terminal.
 // Extracted from the Lending Intelligence Terminal at
-// https://lending-intelligence-terminal.vercel.app/ via Playwright on 2026-05-26
+// https://lending-intelligence-terminal.datumlabs.workers.dev/ via Playwright on 2026-05-26
 // (see branding/extracted-tokens.json). Two sibling products under the Datum
 // Labs brand. These tokens are the source of truth so they stay consistent.
 //

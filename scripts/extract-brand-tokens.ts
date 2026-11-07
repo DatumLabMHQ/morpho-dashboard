@@ -23,7 +23,7 @@ const REF_DIR = join(OUT_DIR, 'reference');
 // live element styles. The marketing page redirected behavior the user
 // described doesn't actually happen — the two URLs are separate.
 const TARGET_URLS = [
-  'https://lending-intelligence-terminal.vercel.app/',
+  'https://lending-intelligence-terminal.datumlabs.workers.dev/',
   'https://www.datumlab.xyz/lending-terminal',
 ];
 const TARGET_URL = TARGET_URLS[0]!;
