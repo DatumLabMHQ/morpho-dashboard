@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 const __d = dirname(fileURLToPath(import.meta.url));
-const BASE = process.env.PROD_URL ?? 'https://morpho-terminal.vercel.app';
+const BASE = process.env.PROD_URL ?? 'https://morpho-terminal.datumlabs.workers.dev';
 const OUT = join(__d, '..', 'branding');
 
 async function main() {

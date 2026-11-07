@@ -4,7 +4,7 @@ import { chromium } from 'playwright';
 const __d = dirname(fileURLToPath(import.meta.url));
 const BRAND = join(__d, '..', 'branding');
 const EXPORTS = join(__d, '..', 'apps', 'web', 'public', 'exports');
-const URL = 'https://morpho-terminal.vercel.app/chains/base';
+const URL = 'https://morpho-terminal.datumlabs.workers.dev/chains/base';
 
 async function capChart(page: any, titleSub: string, out: string, width: number) {
   const h = page.getByText(titleSub, { exact: false }).first();

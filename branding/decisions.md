@@ -1,7 +1,7 @@
 # Brand decisions — Morpho Research Terminal
 
 Source extraction: `scripts/extract-brand-tokens.ts` running Playwright against
-`https://lending-intelligence-terminal.vercel.app/` on 2026-05-26.
+`https://lending-intelligence-terminal.datumlabs.workers.dev/` on 2026-05-26.
 
 ## What we inherited
 
